@@ -187,14 +187,53 @@
   });
 
   // ---------------------------------------------------------------
+  // Fragment links
+  // ---------------------------------------------------------------
+  // The <base href> that makes _api paths resolve against the SP web
+  // also makes "#foo" resolve against that URL rather than this
+  // document — so a plain in-page link would navigate the preview away
+  // and destroy the run. Re-create the same-document navigation the
+  // user's code would get on a real page, hashchange included.
+  //
+  // Bubble phase, and defaultPrevented is honoured: user code that
+  // calls preventDefault() on an <a href="#"> button (the classic
+  // no-op-link pattern) must still win, exactly as on a real page.
+  document.addEventListener('click', function (e) {
+    if (e.defaultPrevented || e.button !== 0) return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+    if (!a) return;
+    var target = a.getAttribute('target');
+    if (target && target !== '_self') return;
+    var href = a.getAttribute('href');
+    if (!href || href.charAt(0) !== '#') return;
+
+    e.preventDefault();
+    var id = href.slice(1);
+    if (!id) { window.scrollTo(0, 0); return; }          // bare "#" scrolls to top
+    // Assign first so hashchange fires, then scroll explicitly: the
+    // assignment is a no-op when the hash already matches, and we do
+    // not rely on about:srcdoc honouring fragment navigation at all.
+    if (location.hash.slice(1) !== id) {
+      try { location.hash = id; } catch (err) { /* fragment nav unsupported — scroll still works */ }
+    }
+    var el = document.getElementById(id) ||
+      (document.getElementsByName(id) || [])[0];
+    if (el && el.scrollIntoView) el.scrollIntoView();
+  });
+
+  // ---------------------------------------------------------------
   // Network capture: fetch + XMLHttpRequest
   // ---------------------------------------------------------------
+  // Ids are namespaced by TOKEN: the parent panel keeps rows across runs,
+  // and every fresh iframe restarts netId at 0, so bare f1/x1 would
+  // collide with (and silently overwrite) a previous run's entries.
   var netId = 0;
 
   var nativeFetch = window.fetch ? window.fetch.bind(window) : null;
   if (nativeFetch) {
     window.fetch = function (input, init) {
-      var id = 'f' + (++netId);
+      var id = TOKEN + ':f' + (++netId);
       var method = (init && init.method) || (input && input.method) || 'GET';
       var url = '';
       try { url = typeof input === 'string' ? input : (input && input.url) || String(input); } catch (e) {}
@@ -239,7 +278,7 @@
     XHR.prototype.send = function () {
       var xhr = this;
       var meta = xhr.__dcspad || { method: 'GET', url: '' };
-      var id = 'x' + (++netId);
+      var id = TOKEN + ':x' + (++netId);
       var start = performance.now();
       post({ kind: 'net-start', id: id, method: meta.method, url: meta.url, api: 'xhr' });
       xhr.addEventListener('loadend', function () {

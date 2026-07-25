@@ -6,8 +6,13 @@ import { initEditors } from './editors.js';
 import { initRunner, run as runnerRun, evalInFrame, mapSrcdocLineToUserJs, hasRun } from './runner.js';
 import { initConsolePanel } from './console-panel.js';
 import { initNetworkPanel, markRun as networkMarkRun } from './network-panel.js';
-import { initLibraries, getEnabledLibraries } from './libraries.js';
-import { applyContextIndicators } from './bridge/sp-context.js';
+import {
+  initLibraries, getEnabledLibraries, getCatalogDoc, replaceCatalog,
+  unknownLibraryIds, refreshLibraryUI,
+} from './libraries.js';
+import { initSnippets } from './snippets.js';
+import { downloadText, wireJsonImport } from './io.js';
+import { applyContextIndicators, getSpContext } from './bridge/sp-context.js';
 import { showSplash } from './splash.js';
 
 const state = getState();
@@ -41,7 +46,19 @@ const networkApi = initNetworkPanel({
 });
 
 // ---------- libraries ----------
-initLibraries({ onChange: () => scheduleAutorun() });
+initLibraries({
+  onChange: () => scheduleAutorun(),
+  onStorageError: (msg) => reportStorageError(msg),
+});
+
+// ---------- snippets ----------
+initSnippets({
+  getSelection: (name) => editorsApi.getSelection(name),
+  getDocs: () => editorsApi.getDocs(),
+  insertAtCursor: (name, text) => editorsApi.insertAtCursor(name, text),
+  selectEditorTab: (name) => layoutApi.selectEditorTab(name),
+  onStorageError: (msg) => reportStorageError(msg),
+});
 
 // ---------- SP context ----------
 const spContext = applyContextIndicators();
@@ -78,7 +95,13 @@ function stopSpinner() {
 }
 
 async function run() {
-  await runnerReady;
+  try {
+    await runnerReady;
+  } catch (e) {
+    statusRun.textContent = e.message;
+    statusRun.className = 'status-item error';
+    return;
+  }
   const settings = getState().settings;
   if (settings.autoClearConsole) consoleApi.clear();
   networkMarkRun();
@@ -95,7 +118,9 @@ async function run() {
   const { runNumber } = runnerRun({
     docs: editorsApi.getDocs(),
     libraries: getEnabledLibraries(),
-    spContext,
+    // Re-capture per run: on classic pages the host rewrites the
+    // #__REQUESTDIGEST form field, and a bootstrap-time digest expires.
+    spContext: getSpContext({ refresh: true }),
     settings,
   });
   if (!settings.autoClearConsole) consoleApi.runDivider(runNumber);
@@ -151,14 +176,108 @@ function scheduleAutorun() {
   autorunTimer = setTimeout(run, AUTORUN_DEBOUNCE_MS);
 }
 
-// ---------- settings menu ----------
-const settingsMenu = document.getElementById('settings-menu');
-document.getElementById('btn-settings').addEventListener('click', (e) => {
-  e.stopPropagation();
-  settingsMenu.hidden = !settingsMenu.hidden;
-});
+// ---------- dropdown menus (settings, file) ----------
+const menus = [
+  { btn: document.getElementById('btn-settings'), menu: document.getElementById('settings-menu') },
+  { btn: document.getElementById('btn-file'), menu: document.getElementById('file-menu') },
+];
+for (const { btn, menu } of menus) {
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = menu.hidden;
+    for (const m of menus) m.menu.hidden = true;
+    menu.hidden = !open;
+  });
+}
 document.addEventListener('click', (e) => {
-  if (!settingsMenu.hidden && !settingsMenu.contains(e.target)) settingsMenu.hidden = true;
+  for (const { menu } of menus) {
+    if (!menu.hidden && !menu.contains(e.target)) menu.hidden = true;
+  }
+});
+const closeFileMenu = () => { document.getElementById('file-menu').hidden = true; };
+
+// ---------- project save/load + pane exports ----------
+
+// A warning from the pad itself, rendered into the console panel.
+function padWarn(msg) {
+  consoleApi.handlers.console({ level: 'warn', args: [{ t: 'str', v: `DCSPad: ${msg}` }] });
+}
+
+document.getElementById('mi-save-project').addEventListener('click', () => {
+  closeFileMenu();
+  const s = getState();
+  const file = {
+    app: 'dcspad', kind: 'project', v: 1,
+    savedAt: new Date().toISOString(),
+    docs: editorsApi.getDocs(),
+    libraries: { enabled: s.libraries.enabled, dcsUrl: s.libraries.dcsUrl },
+    jsAsModule: s.settings.jsAsModule,
+  };
+  downloadText('dcspad-project.json', JSON.stringify(file, null, 2));
+});
+
+document.getElementById('mi-load-project').addEventListener('click', () => {
+  closeFileMenu();
+  document.getElementById('import-project-file').click();
+});
+wireJsonImport('import-project-file', (doc) => {
+  if (!doc || doc.kind !== 'project' || typeof doc.docs !== 'object' || doc.docs === null) {
+    alert('Not a DCSPad project file.');
+    return;
+  }
+  const str = (v) => (typeof v === 'string' ? v : '');
+  editorsApi.setDocs({ html: str(doc.docs.html), css: str(doc.docs.css), js: str(doc.docs.js) });
+
+  const libs = doc.libraries || {};
+  const enabled = Array.isArray(libs.enabled) ? libs.enabled.filter((id) => typeof id === 'string') : [];
+  updateNested('libraries', {
+    enabled,
+    ...(typeof libs.dcsUrl === 'string' ? { dcsUrl: libs.dcsUrl } : {}),
+  });
+  if (typeof doc.jsAsModule === 'boolean') {
+    updateNested('settings', { jsAsModule: doc.jsAsModule });
+    // Resolved here, not via the chkModule const declared further down —
+    // referencing it would work (the callback fires post-init) but is a
+    // TDZ trap for anyone who reorders this file.
+    document.getElementById('chk-module').checked = doc.jsAsModule;
+  }
+  refreshLibraryUI();
+
+  // Deliberately tolerant: a project may reference catalog entries that
+  // were removed since it was saved. The run will fail visibly with
+  // "X is not defined" — this warning just names the gap up front.
+  const missing = unknownLibraryIds(enabled);
+  if (missing.length) {
+    padWarn(`this project references framework(s) not in your catalog: ${missing.join(', ')} — re-add them under Frameworks, or the run will fail where they're used`);
+  }
+  statusRun.textContent = 'project loaded — press Run';
+  statusRun.className = 'status-item';
+});
+
+const PANE_EXPORTS = [
+  ['mi-export-html', 'html', 'dcspad.html', 'text/html'],
+  ['mi-export-css', 'css', 'dcspad.css', 'text/css'],
+  ['mi-export-js', 'js', 'dcspad.js', 'text/javascript'],
+];
+for (const [id, pane, filename, type] of PANE_EXPORTS) {
+  document.getElementById(id).addEventListener('click', () => {
+    closeFileMenu();
+    downloadText(filename, editorsApi.getDocs()[pane], type);
+  });
+}
+
+// ---------- catalog file save/load ----------
+document.getElementById('btn-catalog-export').addEventListener('click', () => {
+  downloadText('dcspad-catalog.json', JSON.stringify(getCatalogDoc(), null, 2));
+});
+document.getElementById('btn-catalog-import').addEventListener('click', () => {
+  document.getElementById('import-catalog-file').click();
+});
+wireJsonImport('import-catalog-file', (doc) => {
+  if (!doc || !Array.isArray(doc.items)) { alert('Not a DCSPad catalog file.'); return; }
+  const cur = getCatalogDoc().items.length;
+  if (!confirm(`Replace your framework catalog (${cur} entries) with this file (${doc.items.length} entries)?`)) return;
+  replaceCatalog(doc);
 });
 
 const chkModule = document.getElementById('chk-module');
@@ -171,14 +290,27 @@ chkAutoclear.checked = state.settings.autoClearConsole;
 chkAutoclear.addEventListener('change', () =>
   updateNested('settings', { autoClearConsole: chkAutoclear.checked }));
 
-// ---------- autosave tick ----------
+// ---------- autosave tick + storage errors ----------
 const saveEl = document.getElementById('status-save');
 onSaveStatus((status) => {
+  saveEl.classList.remove('saved', 'error');
   if (status === 'dirty') {
     saveEl.textContent = 'saving…';
-    saveEl.classList.remove('saved');
+  } else if (status === 'error') {
+    saveEl.textContent = 'save failed — use File ▸ Save project';
+    saveEl.classList.add('error');
   } else {
     saveEl.textContent = '✓ saved';
     saveEl.classList.add('saved');
   }
 });
+
+// Catalog/snippet write failures: the console entry persists even when
+// a later (smaller) workspace autosave succeeds and retakes the status
+// text, so the failure can't be silently papered over.
+function reportStorageError(msg) {
+  padWarn(`${msg} — use the ⤓ export buttons or File ▸ Save project to keep your work`);
+  saveEl.textContent = 'save failed';
+  saveEl.classList.add('error');
+  saveEl.classList.remove('saved');
+}
