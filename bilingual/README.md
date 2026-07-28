@@ -39,7 +39,44 @@ html[lang="en"] [lang="fr"] { display: none; }
 `display: none` specifically — screen readers skip it; `visibility` /
 off-screen tricks leave the other language readable.
 
-## Usage
+## Quick tier — for little widgets
+
+Keys and a strings file are the right shape for a real app, but overkill
+for a one-off slider. The same `i18n.js` supports a zero-ceremony tier —
+pick per element / per string, and mix tiers freely on one page:
+
+```html
+<!-- FR rides inline beside the authored EN; no dictionary at all -->
+<label data-fr="Vitesse">Speed</label>
+<input type="range" data-fr-title="Glisser pour régler" title="Drag to adjust">
+```
+
+```js
+// Inline EN/FR pair in script — no dictionary
+I18N.t('Save', 'Enregistrer');
+I18N.t('{n}% of maximum', '{n} % du maximum', { n: v });
+```
+
+```html
+<!-- Middle ground (gettext style): valueless data-i18n means the English
+     text IS the key; a flat entry supplies the French -->
+<h2 data-i18n>Quick widget</h2>
+```
+```js
+I18N.addMessages({ 'Quick widget': 'Petit widget' });
+```
+
+Attribute variants for the inline form: `data-fr-placeholder`,
+`data-fr-title`, `data-fr-alt`, `data-fr-value`, `data-fr-aria-label`.
+The swapper stashes the original English (as `data-en` / `data-en-*`) on
+first apply, so live toggling works both ways. Inline forms are plain
+text only — strings containing markup need the keyed `data-i18n-html`.
+
+Rule of thumb: inline `data-fr` for throwaway widgets, gettext flat
+entries once a widget has a dozen strings, dotted keys once translators
+or multiple pages are involved.
+
+## Usage — keyed tier
 
 ```html
 <h1 data-i18n="app.title">Client Onboarding</h1>
@@ -64,6 +101,26 @@ of `<body>` so the swap happens before first paint (no flash of English).
 Numbers and dates are formatting, not translation — use
 `Intl.NumberFormat` / `Intl.DateTimeFormat` with `fr-CA` / `en-CA`
 (see `render()` in the demo) rather than dictionary entries.
+
+## SharePoint notes — why not resx
+
+`.resx` resources are server-side artifacts: they work via `$Resources:`
+tokens in master pages / page layouts / feature XML, or
+`SPUtility.GetLocalizedString`, and reaching them from JavaScript
+(ScriptResx.ashx) requires deploying the .resx into the hive — i.e. a
+farm solution on-prem. Script-embedded customizations (Script Editor /
+Content Editor / JSLink) have no path to author or read custom resx, and
+SharePoint Online removed the deployment vector entirely. SPFx web parts
+get an official localization system (`loc/en-us.js` / `fr-fr.js` string
+bundles picked by UI culture) — the same keyed-dictionary idea, but it
+needs the SPFx build/deploy pipeline. MUI and variations translate
+SharePoint's own chrome and publishing content, never embedded script.
+
+So for script-embed workflows the client-side dictionary IS the
+established pattern. SharePoint does contribute one useful freebie:
+`_spPageContextInfo.currentUICultureName` (e.g. `"fr-CA"`) on classic
+pages, and the legacy page context on modern pages — a strong extra
+signal for the language-detection stack.
 
 ## Plugging in real language detection
 

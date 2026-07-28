@@ -39,11 +39,25 @@
 <p id="updated" class="muted"></p>
 <p id="exportHint" class="muted"></p>
 
+<hr>
+
+<!-- QUICK TIER: a throwaway widget — no dictionary keys, both languages
+     inline in this file. data-fr rides beside the authored English. -->
+<h2 data-i18n>Quick widget</h2>
+<label for="speed" data-fr="Vitesse">Speed</label>
+<input id="speed" type="range" min="0" max="100" value="40"
+       data-fr-title="Glisser pour régler" title="Drag to adjust">
+<span id="speedVal" class="muted"></span>
+
 <script src="i18n.js"></script>
 <script src="strings.js"></script>
 <script>
 (function () {
   'use strict';
+
+  // Quick-tier heading: valueless data-i18n means the English text is the
+  // key, and a flat entry supplies the French. Two lines total.
+  I18N.addMessages({ 'Quick widget': 'Petit widget' });
 
   function locale() {
     return I18N.getLang() === 'fr' ? 'fr-CA' : 'en-CA';
@@ -65,7 +79,16 @@
     // Untranslated key: falls back to English, gets logged for report().
     document.getElementById('exportHint').textContent =
       I18N.t('results.exportHint');
+    renderSpeed();
   }
+
+  // Quick-tier script string: inline EN/FR pair, no dictionary.
+  function renderSpeed() {
+    document.getElementById('speedVal').textContent =
+      I18N.t('{n}% of maximum', '{n} % du maximum',
+             { n: document.getElementById('speed').value });
+  }
+  document.getElementById('speed').addEventListener('input', renderSpeed);
 
   document.getElementById('langToggle').addEventListener('click', function () {
     I18N.setLang(I18N.getLang() === 'en' ? 'fr' : 'en');

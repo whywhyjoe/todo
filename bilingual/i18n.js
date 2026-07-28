@@ -6,10 +6,17 @@
  * No dependencies, no build step — safe to paste into a Script Editor /
  * Content Editor web part. Exposes a single global: window.I18N.
  *
- * Markup contract:
+ * Markup contract — keyed tier (bigger apps, strings live in strings.js):
  *   data-i18n="key"                          -> element textContent
  *   data-i18n-html="key"                     -> element innerHTML (trusted strings only)
  *   data-i18n-attr="placeholder:key;title:key2" -> named attributes
+ *
+ * Quick tier (little widgets — no dictionary, no keys):
+ *   <button data-fr="Rechercher">Search</button>   inline FR beside the EN
+ *   data-fr-placeholder / -title / -alt / -value / -aria-label   for attributes
+ *   I18N.t('Save', 'Enregistrer')                   inline pair in script
+ *   <span data-i18n>Search</span>                   valueless: the EN text IS the
+ *       dictionary key (gettext style, flat entries: { 'Search': 'Rechercher' })
  */
 (function (global) {
   'use strict';
@@ -48,9 +55,15 @@
 
   function lookup(key, lang) {
     var entry = messages[key];
-    if (!entry) {
-      noteMissing(key, lang);
+    if (entry == null) {
+      // Absent entry is only "missing" in FR: in gettext-style usage the
+      // EN text is the key, so EN never needs an entry at all.
+      if (lang !== DEFAULT_LANG) noteMissing(key, lang);
       return null;
+    }
+    if (typeof entry === 'string') {
+      // Flat gettext-style entry: key is the English, value is the French.
+      entry = { en: key, fr: entry };
     }
     if (entry[lang] == null || entry[lang] === '') {
       noteMissing(key, lang);
@@ -67,10 +80,23 @@
     });
   }
 
-  function t(key, params) {
-    var str = lookup(key, current);
-    if (str == null) {
-      return key; // last resort: show the key, never an empty string
+  /*
+   * t('dict.key')                       keyed lookup
+   * t('dict.key', {n: 3})               keyed lookup + interpolation
+   * t('Save', 'Enregistrer')            inline EN/FR pair, no dictionary
+   * t('{n} items', '{n} éléments', {n}) inline pair + interpolation
+   */
+  function t(key, a, b) {
+    var params = a;
+    var str;
+    if (typeof a === 'string') {
+      str = (current === 'fr' && a) ? a : key;
+      params = b;
+    } else {
+      str = lookup(key, current);
+      if (str == null) {
+        str = key; // last resort: show the key/English, never a blank
+      }
     }
     return params ? format(str, params) : str;
   }
@@ -84,7 +110,36 @@
     var scope = root || doc;
 
     each(scope.querySelectorAll('[data-i18n]'), function (el) {
-      el.textContent = t(el.getAttribute('data-i18n'));
+      // Valueless data-i18n: the element's own English text is the key.
+      // Captured once so re-applying after a swap still finds it.
+      var key = el.getAttribute('data-i18n') || el.__i18nKey ||
+                (el.__i18nKey = el.textContent.trim());
+      el.textContent = t(key);
+    });
+
+    each(scope.querySelectorAll('[data-fr]'), function (el) {
+      if (!el.hasAttribute('data-en')) {
+        el.setAttribute('data-en', el.textContent);
+      }
+      el.textContent = el.getAttribute(current === 'fr' ? 'data-fr' : 'data-en');
+    });
+
+    each(scope.querySelectorAll(
+      '[data-fr-placeholder],[data-fr-title],[data-fr-alt],[data-fr-value],[data-fr-aria-label]'
+    ), function (el) {
+      var names = [];
+      for (var i = 0; i < el.attributes.length; i++) {
+        var m = /^data-fr-(.+)$/.exec(el.attributes[i].name);
+        if (m) names.push(m[1]);
+      }
+      for (var j = 0; j < names.length; j++) {
+        var name = names[j];
+        if (!el.hasAttribute('data-en-' + name)) {
+          el.setAttribute('data-en-' + name, el.getAttribute(name) || '');
+        }
+        el.setAttribute(name,
+          el.getAttribute((current === 'fr' ? 'data-fr-' : 'data-en-') + name));
+      }
     });
 
     each(scope.querySelectorAll('[data-i18n-html]'), function (el) {
