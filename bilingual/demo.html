@@ -6,6 +6,14 @@
 <!-- The inline English below is authored fallback: the page reads fine
      in source and degrades to EN if scripts fail. apply() overwrites it. -->
 <title data-i18n="app.title">Client Onboarding</title>
+<script>
+  // Dual-DOM tier: set the language before first paint so lang-blocks.css
+  // hides the right blocks with no flash of the wrong language.
+  // Placeholder detection — keep in lockstep with detectLang() in i18n.js.
+  document.documentElement.lang =
+    /[?&]lang=fr/.test(location.search) ? 'fr' : 'en';
+</script>
+<link rel="stylesheet" href="lang-blocks.css">
 <style>
   body { font-family: "Segoe UI", system-ui, sans-serif; margin: 2rem auto; max-width: 40rem; color: #222; }
   header { display: flex; justify-content: space-between; align-items: baseline; }
@@ -21,7 +29,9 @@
   <h1 data-i18n="app.title">Client Onboarding</h1>
   <!-- Canadian convention: the toggle names the OTHER language.
        The dictionary handles that naturally — no special casing. -->
-  <button id="langToggle" data-i18n="ui.langToggle" lang="fr">Français</button>
+  <!-- lang-keep: labelled in the OTHER language on purpose; without it
+       lang-blocks.css would hide the toggle itself. -->
+  <button id="langToggle" class="lang-keep" data-i18n="ui.langToggle" lang="fr">Français</button>
 </header>
 
 <p data-i18n-html="app.intro">Track <strong>new client</strong> requests through review and approval.</p>
@@ -48,6 +58,27 @@
 <input id="speed" type="range" min="0" max="100" value="40"
        data-fr-title="Glisser pour régler" title="Drag to adjust">
 <span id="speedVal" class="muted"></span>
+
+<hr>
+
+<!-- DUAL-DOM TIER: whole blocks per language, real lang attributes,
+     hidden/shown purely by lang-blocks.css matching <html lang>.
+     Same-named input in both blocks: apply() disables the hidden copy
+     so only the visible one submits. Never duplicate ids across blocks. -->
+<section lang="en">
+  <h2>Scheduled maintenance</h2>
+  <p>Online statements will be unavailable Sunday from 2–4 a.m.</p>
+  <label>Notify me:
+    <input type="email" name="notifyEmail" placeholder="you@example.com">
+  </label>
+</section>
+<section lang="fr">
+  <h2>Entretien planifié</h2>
+  <p>Les relevés en ligne seront indisponibles dimanche, de 2 h à 4 h.</p>
+  <label>M’aviser :
+    <input type="email" name="notifyEmail" placeholder="vous@exemple.com">
+  </label>
+</section>
 
 <script src="i18n.js"></script>
 <script src="strings.js"></script>

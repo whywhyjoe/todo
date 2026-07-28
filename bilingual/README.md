@@ -27,17 +27,8 @@ The keyed-dictionary shape is also what every mainstream i18n library
 (i18next, gettext, SharePoint's own resx) uses, so it reads as familiar
 in review.
 
-**If you do keep dual-DOM anywhere** (e.g. large rich-text blocks where a
-key would be awkward), use real `lang` attributes instead of classes —
-that's the semantic version, and screen readers get pronunciation for free:
-
-```css
-html[lang="fr"] [lang="en"],
-html[lang="en"] [lang="fr"] { display: none; }
-```
-
-`display: none` specifically — screen readers skip it; `visibility` /
-off-screen tricks leave the other language readable.
+**If you do keep dual-DOM anywhere**, that's supported too — see the
+dual-DOM tier below (`lang-blocks.css`).
 
 ## Quick tier — for little widgets
 
@@ -75,6 +66,68 @@ text only — strings containing markup need the keyed `data-i18n-html`.
 Rule of thumb: inline `data-fr` for throwaway widgets, gettext flat
 entries once a widget has a dozen strings, dotted keys once translators
 or multiple pages are involved.
+
+## Dual-DOM tier — whole blocks per language (if you must)
+
+For laziness-approved wholesale blocks, do it semantically: sibling
+elements with real `lang` attributes, hidden purely by CSS keyed off
+`<html lang>` — no classes, no per-block JS.
+
+```html
+<link rel="stylesheet" href="lang-blocks.css">   <!-- in <head> -->
+
+<section lang="en"> <h2>Scheduled maintenance</h2> … </section>
+<section lang="fr"> <h2>Entretien planifié</h2> … </section>
+```
+
+`lang-blocks.css` is two selectors: whichever block doesn't match
+`<html lang>` gets `display: none` (screen readers and find-in-page skip
+it; the visible block is pronounced correctly because the `lang`
+attribute is real). `I18N.setLang()` already keeps `<html lang>`
+truthful, so the blocks flip with the rest of the page for free.
+
+House rules that keep it honest:
+
+- **Early-lang snippet in `<head>`** (see demo.html) so `<html lang>` is
+  right before first paint — no flash of the wrong language. With JS off,
+  the authored `<html lang="en">` shows English.
+- **`class="lang-keep"`** on anything legitimately in the other language —
+  the language toggle, a quoted French phrase in English copy — or the
+  CSS will hide it.
+- **Never duplicate `id`s across blocks.** Suffix them (`-en`/`-fr`) or
+  keep interactive bits outside the blocks.
+- **Forms:** a hidden duplicate `<input name="…">` still submits and still
+  catches tab focus. `I18N.apply()` disables form controls inside the
+  inactive block (and re-enables only what it disabled), but the better
+  layout is one form outside the blocks with translated labels.
+- The structural costs don't go away: double payload, every copy edit
+  made twice, translator changes scattered through markup. That's why
+  this is the last-resort tier, not the default.
+
+## Alpine.js / design systems
+
+The swapper only touches nodes you explicitly mark (`data-i18n*`,
+`data-fr*`, `[lang]` blocks) and ships no CSS beyond the `[lang]` hiding
+rule — it never scans, restyles, or re-renders anything else, so it
+coexists with any design system's markup, classes, and components.
+
+Two rules when a JS framework or component owns the DOM:
+
+- **One writer per text node.** Don't put `data-i18n` / `data-fr` on a
+  node that Alpine (`x-text`, `x-html`) or a design-system widget also
+  writes — the two will clobber each other. For component-rendered text,
+  pass translated strings in as data (`I18N.t(...)`).
+- **Alpine gets a bridge**: load `i18n-alpine.js` (after `i18n.js`,
+  before Alpine) and use `$t` inside Alpine expressions —
+  `x-text="$t('Save', 'Enregistrer')"`. It's backed by a reactive store,
+  so expressions re-evaluate on language flip, and it covers `x-if` /
+  `x-for` template content that `I18N.apply()` never sees. For
+  Alpine-inserted static markup you can also call
+  `I18N.apply(insertedEl)` on just that subtree.
+
+One design-system caveat: if a component library itself puts `lang`
+attributes on elements, `lang-blocks.css` would hide them — add
+`lang-keep` or scope the two selectors to a container you control.
 
 ## Usage — keyed tier
 

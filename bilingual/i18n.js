@@ -17,6 +17,11 @@
  *   I18N.t('Save', 'Enregistrer')                   inline pair in script
  *   <span data-i18n>Search</span>                   valueless: the EN text IS the
  *       dictionary key (gettext style, flat entries: { 'Search': 'Rechercher' })
+ *
+ * Dual-DOM tier (whole blocks per language — see lang-blocks.css):
+ *   <section lang="en">…</section><section lang="fr">…</section>
+ *   CSS hides the block not matching <html lang>; apply() only steps in
+ *   to keep form controls in the hidden block from submitting.
  */
 (function (global) {
   'use strict';
@@ -154,6 +159,25 @@
           el.setAttribute(pair[0].trim(), t(pair[1].trim()));
         }
       }
+    });
+
+    // Dual-DOM blocks (lang-blocks.css hides the inactive one): keep form
+    // controls inside the hidden block from submitting or catching focus.
+    each(scope.querySelectorAll('[lang="en"], [lang="fr"]'), function (block) {
+      if (block === doc.documentElement) return;
+      if (/(^|\s)lang-keep(\s|$)/.test(block.getAttribute('class') || '')) return;
+      var inactive = block.getAttribute('lang') !== current;
+      each(block.querySelectorAll('input, select, textarea, button'), function (c) {
+        if (inactive) {
+          if (!c.disabled) {
+            c.disabled = true;
+            c.__i18nDisabled = true; // only re-enable what we disabled
+          }
+        } else if (c.__i18nDisabled) {
+          c.disabled = false;
+          c.__i18nDisabled = false;
+        }
+      });
     });
 
     if (!root) {
