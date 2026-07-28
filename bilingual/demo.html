@@ -90,6 +90,10 @@
   // key, and a flat entry supplies the French. Two lines total.
   intl.addMessages({ 'Quick widget': 'Petit widget' });
 
+  // Vendor JSON round-trip (needs http(s), so it's inert on file://):
+  // strings.fr.json completes results.exportHint's pending translation.
+  // intl.load('strings.fr.json', 'fr');
+
   function render() {
     // The toggle is labelled in the language it switches TO — keep its
     // lang attribute pointing there so screen readers pronounce it right.

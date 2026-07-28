@@ -180,7 +180,35 @@ Case matters: `intl` (lowercase) is this library; `Intl` (capital) is
 the browser's built-in API it delegates to. Reach for capital-I `Intl`
 directly only to format in a locale other than the active one.
 
-## SharePoint notes — why not resx
+## JSON workflow — round-tripping with translation vendors
+
+The dictionary format is JSON-shaped on purpose, so vendor files plug in
+three ways:
+
+```js
+intl.load('strings.json');            // full file: { "key": { "en": "…", "fr": "…" } }
+intl.load('strings.fr.json', 'fr');   // per-language file: { "key": "Français" }
+intl.load('strings.fr.json', 'fr', function (err) { /* optional */ });
+```
+
+The per-language form is the vendor round-trip: send them the keys (or
+`intl.report()`'s output), get back `{ key: french }`, upload it
+untouched, done. `load()` **merges** per-language files into existing
+entries, so a `fr.json` completes keys authored EN-first without
+touching the English. After any load the page re-swaps and `onChange`
+listeners fire, so script-rendered text refreshes too.
+
+Notes:
+
+- **Async means a beat of English first** for FR visitors while the
+  request is in flight. For zero flash, skip the request entirely: JSON
+  is valid JavaScript, so the vendor file's body pastes verbatim into
+  `strings.js` — `intl.addMessages(` *paste* `, 'fr')` — the same file
+  the page already loads synchronously.
+- **Same-origin URL** (Site Assets / Style Library is the natural home).
+- Old on-prem farms sometimes refuse to serve `.json` from libraries
+  (unmapped MIME type). SPO is fine; on-prem, rename the file `.txt` —
+  `load()` only cares about the content.
 
 `.resx` resources are server-side artifacts: they work via `$Resources:`
 tokens in master pages / page layouts / feature XML, or
