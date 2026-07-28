@@ -55,12 +55,73 @@
   var missing = {};    // 'key|lang' -> { key, lang } — pending-translation log
   var listeners = [];
 
-  function addMessages(dict) {
+  /*
+   * addMessages(dict)         entries: { 'key': { en: '…', fr: '…' } }
+   *                           or flat gettext: { 'English': 'Français' }
+   * addMessages(dict, 'fr')   per-language file: { 'key': 'Français' } —
+   *                           merged into existing entries, so a vendor's
+   *                           fr.json completes keys authored EN-first.
+   */
+  function addMessages(dict, lang) {
     for (var key in dict) {
-      if (Object.prototype.hasOwnProperty.call(dict, key)) {
+      if (!Object.prototype.hasOwnProperty.call(dict, key)) continue;
+      if (lang) {
+        var entry = messages[key];
+        if (typeof entry === 'string') entry = { en: key, fr: entry };
+        if (!entry) entry = {};
+        entry[lang] = dict[key];
+        messages[key] = entry;
+      } else {
         messages[key] = dict[key];
       }
+      // A translation arriving late (vendor JSON) resolves its pending-
+      // translation record, so report() reflects what's still missing NOW.
+      var resolved = messages[key];
+      if (typeof resolved === 'string') resolved = { en: key, fr: resolved };
+      for (var i = 0; i < SUPPORTED.length; i++) {
+        if (resolved[SUPPORTED[i]] != null && resolved[SUPPORTED[i]] !== '') {
+          delete missing[key + '|' + SUPPORTED[i]];
+        }
+      }
     }
+  }
+
+  /*
+   * Fetch a JSON dictionary (e.g. straight from the translation vendor),
+   * merge it, and re-swap the page. Same-origin URL, e.g. Site Assets.
+   *   intl.load('strings.json', done)          full { key: {en, fr} } file
+   *   intl.load('strings.fr.json', 'fr', done) per-language { key: 'fr' } file
+   * done(err) is optional. Strings arriving after first paint re-apply
+   * automatically and onChange listeners fire so script-rendered text
+   * refreshes too.
+   */
+  function load(url, lang, done) {
+    if (typeof lang === 'function') {
+      done = lang;
+      lang = undefined;
+    }
+    var xhr = new global.XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState !== 4) return;
+      var ok = (xhr.status >= 200 && xhr.status < 300) ||
+               (xhr.status === 0 && xhr.responseText); // file://
+      var err = null;
+      if (ok) {
+        try {
+          addMessages(JSON.parse(xhr.responseText), lang);
+          apply();
+          for (var i = 0; i < listeners.length; i++) listeners[i](current);
+        } catch (e) {
+          err = e;
+        }
+      } else {
+        err = new Error('intl.load: ' + url + ' -> HTTP ' + xhr.status);
+      }
+      if (done) done(err);
+      else if (err && global.console) global.console.error(err);
+    };
+    xhr.send();
   }
 
   function noteMissing(key, lang) {
@@ -292,6 +353,7 @@
     NumberFormat: NumberFormat,
     DateTimeFormat: DateTimeFormat,
     addMessages: addMessages,
+    load: load,
     onChange: onChange,
     report: report
   };
