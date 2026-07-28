@@ -9,6 +9,16 @@ working, including attribute translation, `{token}` interpolation,
 locale-aware number/date formatting, and English fallback for
 not-yet-translated keys.
 
+> **⚠ Before using for real: language detection is a placeholder.**
+> `detectLang()` in `intl.js` only reads a `?lang=fr` URL param. It must
+> be replaced with the production multi-layer SharePoint detection
+> (URL param → `/sites/fr`-style URL infix → language-switcher state on
+> load, plus `_spPageContextInfo.currentUICultureName` as an extra
+> signal). Two other spots must stay in lockstep with whatever detection
+> ships: the early-lang `<head>` snippet (dual-DOM pages only) and the
+> URL write-back in `setLang()`. Details in
+> [Plugging in real language detection](#plugging-in-real-language-detection).
+
 ## Why this over CSS class show/hide
 
 The `lang-en` / `lang-fr` class approach (both languages in the DOM, CSS
@@ -195,9 +205,19 @@ signal for the language-detection stack.
 `detectLang()` in `intl.js` is a deliberate placeholder (`?lang=fr` URL
 param). Replace its body with the multi-layer SP detection (URL infix,
 switcher state, etc.); nothing else in the file depends on how the
-language was decided. `setLang()` currently writes the choice back to the
-URL param so reloads stick — adjust that to match whatever the real
-detection reads.
+language was decided. Checklist when porting the real detection:
+
+1. **`detectLang()` in `intl.js`** — swap the body; return `'en'` or
+   `'fr'`. Keep `'en'` as the fallback when no signal matches.
+2. **The early-lang `<head>` snippet** (only on pages using dual-DOM
+   blocks — see demo.html) — it duplicates detection before first paint,
+   so it must agree with `detectLang()` or the page flashes one language
+   and settles on another.
+3. **`setLang()` write-back** — it currently writes `?lang=` back to the
+   URL so a reload sticks; point it at whatever the real detection reads
+   (or drop it if the switcher round-trips through the server).
+4. Consider `_spPageContextInfo.currentUICultureName` as an extra
+   detection layer — it's free on classic pages.
 
 Caveat: `setLang()`'s URL sync uses the `URL` API (no IE11); everything
 else is ES5-safe.

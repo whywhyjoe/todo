@@ -36,10 +36,13 @@
   var SUPPORTED = ['en', 'fr'];
 
   /*
-   * PLACEHOLDER detection: ?lang=fr URL param only.
+   * TODO(joe): PLACEHOLDER detection — ?lang=fr URL param only.
    * Swap this function's body for the real multi-layer SP detection
-   * (URL infix, language switcher state, etc.) — nothing else in the
-   * file cares how the language was decided.
+   * (URL param -> URL infix -> switcher state, plus
+   * _spPageContextInfo.currentUICultureName) — nothing else in the file
+   * cares how the language was decided. Porting checklist in README
+   * ("Plugging in real language detection"): the dual-DOM head snippet
+   * and setLang()'s URL write-back must stay in lockstep with this.
    */
   function detectLang() {
     var m = /[?&]lang=([A-Za-z-]+)/.exec(global.location.search);
