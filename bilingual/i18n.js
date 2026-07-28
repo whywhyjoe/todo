@@ -1,10 +1,10 @@
 /*
- * I18N — bilingual EN/FR string swapper for SharePoint pages.
+ * i18n — bilingual EN/FR string swapper for SharePoint pages.
  *
  * One dictionary holds both languages side by side (see strings.js).
- * HTML is marked up with data-i18n attributes; script code calls I18N.t().
+ * HTML is marked up with data-i18n attributes; script code calls i18n.t().
  * No dependencies, no build step — safe to paste into a Script Editor /
- * Content Editor web part. Exposes a single global: window.I18N.
+ * Content Editor web part. Exposes a single global: window.i18n.
  *
  * Markup contract — keyed tier (bigger apps, strings live in strings.js):
  *   data-i18n="key"                          -> element textContent
@@ -14,7 +14,7 @@
  * Quick tier (little widgets — no dictionary, no keys):
  *   <button data-fr="Rechercher">Search</button>   inline FR beside the EN
  *   data-fr-placeholder / -title / -alt / -value / -aria-label   for attributes
- *   I18N.t('Save', 'Enregistrer')                   inline pair in script
+ *   i18n.t('Save', 'Enregistrer')                   inline pair in script
  *   <span data-i18n>Search</span>                   valueless: the EN text IS the
  *       dictionary key (gettext style, flat entries: { 'Search': 'Rechercher' })
  *
@@ -22,6 +22,12 @@
  *   <section lang="en">…</section><section lang="fr">…</section>
  *   CSS hides the block not matching <html lang>; apply() only steps in
  *   to keep form controls in the hidden block from submitting.
+ *
+ * Alpine.js (optional, auto-wired when Alpine is present):
+ *   anywhere Alpine owns the text, use $t instead of data-i18n —
+ *   <span x-text="$t('Save', 'Enregistrer')"></span> — it re-evaluates
+ *   on language flip, including x-if / x-for template content.
+ *   Load this file above the Alpine <script> tag.
  */
 (function (global) {
   'use strict';
@@ -216,17 +222,45 @@
     }
     if (global.console) {
       if (rows.length === 0) {
-        global.console.log('I18N: no missing translations encountered.');
+        global.console.log('i18n: no missing translations encountered.');
       } else if (global.console.table) {
         global.console.table(rows);
       } else {
-        global.console.log('I18N missing translations:', rows);
+        global.console.log('i18n missing translations:', rows);
       }
     }
     return rows;
   }
 
-  global.I18N = {
+  /*
+   * Alpine.js integration — first-class but fully guarded: with no Alpine
+   * on the page this is inert. Registers an 'i18n' store plus a $t magic
+   * that reads it, so Alpine expressions using $t re-evaluate on language
+   * flip (including x-if / x-for template content apply() never sees).
+   * Handles either load order: Alpine after us fires alpine:init; Alpine
+   * already present gets wired immediately.
+   */
+  var alpineWired = false;
+  function wireAlpine(Alpine) {
+    if (alpineWired || !Alpine || !Alpine.store || !Alpine.magic) return;
+    alpineWired = true;
+    Alpine.store('i18n', { lang: current });
+    onChange(function (lang) {
+      Alpine.store('i18n').lang = lang;
+    });
+    Alpine.magic('t', function () {
+      return function (key, a, b) {
+        void Alpine.store('i18n').lang; // reactive dependency on the language
+        return t(key, a, b);
+      };
+    });
+  }
+  global.document.addEventListener('alpine:init', function () {
+    wireAlpine(global.Alpine);
+  });
+  wireAlpine(global.Alpine);
+
+  global.i18n = {
     t: t,
     apply: apply,
     setLang: setLang,

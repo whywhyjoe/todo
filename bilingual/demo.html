@@ -43,7 +43,7 @@
   <button data-i18n="search.button">Search</button>
 </div>
 
-<!-- Everything below is script-rendered via I18N.t() -->
+<!-- Everything below is script-rendered via i18n.t() -->
 <p id="greeting"></p>
 <p id="count"></p>
 <p id="updated" class="muted"></p>
@@ -88,47 +88,47 @@
 
   // Quick-tier heading: valueless data-i18n means the English text is the
   // key, and a flat entry supplies the French. Two lines total.
-  I18N.addMessages({ 'Quick widget': 'Petit widget' });
+  i18n.addMessages({ 'Quick widget': 'Petit widget' });
 
   function locale() {
-    return I18N.getLang() === 'fr' ? 'fr-CA' : 'en-CA';
+    return i18n.getLang() === 'fr' ? 'fr-CA' : 'en-CA';
   }
 
   function render() {
     // The toggle is labelled in the language it switches TO — keep its
     // lang attribute pointing there so screen readers pronounce it right.
     document.getElementById('langToggle')
-      .setAttribute('lang', I18N.getLang() === 'en' ? 'fr' : 'en');
+      .setAttribute('lang', i18n.getLang() === 'en' ? 'fr' : 'en');
     document.getElementById('greeting').textContent =
-      I18N.t('results.greeting', { name: 'Joe' });
+      i18n.t('results.greeting', { name: 'Joe' });
     document.getElementById('count').textContent =
-      I18N.t('results.count', { count: (1234).toLocaleString(locale()) });
+      i18n.t('results.count', { count: (1234).toLocaleString(locale()) });
     document.getElementById('updated').textContent =
-      I18N.t('results.updated', {
+      i18n.t('results.updated', {
         date: new Intl.DateTimeFormat(locale(), { dateStyle: 'long' }).format(new Date())
       });
     // Untranslated key: falls back to English, gets logged for report().
     document.getElementById('exportHint').textContent =
-      I18N.t('results.exportHint');
+      i18n.t('results.exportHint');
     renderSpeed();
   }
 
   // Quick-tier script string: inline EN/FR pair, no dictionary.
   function renderSpeed() {
     document.getElementById('speedVal').textContent =
-      I18N.t('{n}% of maximum', '{n} % du maximum',
+      i18n.t('{n}% of maximum', '{n} % du maximum',
              { n: document.getElementById('speed').value });
   }
   document.getElementById('speed').addEventListener('input', renderSpeed);
 
   document.getElementById('langToggle').addEventListener('click', function () {
-    I18N.setLang(I18N.getLang() === 'en' ? 'fr' : 'en');
+    i18n.setLang(i18n.getLang() === 'en' ? 'fr' : 'en');
   });
 
-  I18N.apply();
+  i18n.apply();
   render();
-  I18N.onChange(render);
-  I18N.report(); // console: keys still waiting on French
+  i18n.onChange(render);
+  i18n.report(); // console: keys still waiting on French
 })();
 </script>
 </body>

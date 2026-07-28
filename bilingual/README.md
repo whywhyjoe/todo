@@ -2,7 +2,7 @@
 
 A keyed-dictionary i18n pattern: both languages live side by side in one
 strings file, HTML is marked with `data-i18n` attributes, and script code
-calls `I18N.t()`. No dependencies, no build step.
+calls `i18n.t()`. No dependencies, no build step.
 
 Open `demo.html` (add `?lang=fr` for French, or use the toggle) to see it
 working, including attribute translation, `{token}` interpolation,
@@ -17,9 +17,9 @@ hides one) works, but has structural costs:
 | | Dual DOM + CSS classes | Keyed dictionary (this) |
 |---|---|---|
 | Attributes (`placeholder`, `title`, `aria-label`, `alt`) | CSS can't reach them; needs JS anyway | Handled (`data-i18n-attr`) |
-| JS-generated strings | Separate mechanism required | Same dictionary, `I18N.t()` |
+| JS-generated strings | Separate mechanism required | Same dictionary, `i18n.t()` |
 | Translator workflow | Strings scattered through markup, duplicated in place | One file, EN/FR side by side |
-| EN-first / FR-later | Hidden gaps — forgotten FR block just never shows | Automatic EN fallback + `I18N.report()` lists pending keys |
+| EN-first / FR-later | Hidden gaps — forgotten FR block just never shows | Automatic EN fallback + `i18n.report()` lists pending keys |
 | DOM weight / duplicate `id`s / Ctrl+F hits | Every string exists twice | One node per string |
 | `document.documentElement.lang` | Usually forgotten | Set on every `apply()` |
 
@@ -44,8 +44,8 @@ pick per element / per string, and mix tiers freely on one page:
 
 ```js
 // Inline EN/FR pair in script — no dictionary
-I18N.t('Save', 'Enregistrer');
-I18N.t('{n}% of maximum', '{n} % du maximum', { n: v });
+i18n.t('Save', 'Enregistrer');
+i18n.t('{n}% of maximum', '{n} % du maximum', { n: v });
 ```
 
 ```html
@@ -54,7 +54,7 @@ I18N.t('{n}% of maximum', '{n} % du maximum', { n: v });
 <h2 data-i18n>Quick widget</h2>
 ```
 ```js
-I18N.addMessages({ 'Quick widget': 'Petit widget' });
+i18n.addMessages({ 'Quick widget': 'Petit widget' });
 ```
 
 Attribute variants for the inline form: `data-fr-placeholder`,
@@ -83,7 +83,7 @@ elements with real `lang` attributes, hidden purely by CSS keyed off
 `lang-blocks.css` is two selectors: whichever block doesn't match
 `<html lang>` gets `display: none` (screen readers and find-in-page skip
 it; the visible block is pronounced correctly because the `lang`
-attribute is real). `I18N.setLang()` already keeps `<html lang>`
+attribute is real). `i18n.setLang()` already keeps `<html lang>`
 truthful, so the blocks flip with the rest of the page for free.
 
 House rules that keep it honest:
@@ -97,7 +97,7 @@ House rules that keep it honest:
 - **Never duplicate `id`s across blocks.** Suffix them (`-en`/`-fr`) or
   keep interactive bits outside the blocks.
 - **Forms:** a hidden duplicate `<input name="…">` still submits and still
-  catches tab focus. `I18N.apply()` disables form controls inside the
+  catches tab focus. `i18n.apply()` disables form controls inside the
   inactive block (and re-enables only what it disabled), but the better
   layout is one form outside the blocks with translated labels.
 - The structural costs don't go away: double payload, every copy edit
@@ -116,14 +116,16 @@ Two rules when a JS framework or component owns the DOM:
 - **One writer per text node.** Don't put `data-i18n` / `data-fr` on a
   node that Alpine (`x-text`, `x-html`) or a design-system widget also
   writes — the two will clobber each other. For component-rendered text,
-  pass translated strings in as data (`I18N.t(...)`).
-- **Alpine gets a bridge**: load `i18n-alpine.js` (after `i18n.js`,
-  before Alpine) and use `$t` inside Alpine expressions —
-  `x-text="$t('Save', 'Enregistrer')"`. It's backed by a reactive store,
-  so expressions re-evaluate on language flip, and it covers `x-if` /
-  `x-for` template content that `I18N.apply()` never sees. For
-  Alpine-inserted static markup you can also call
-  `I18N.apply(insertedEl)` on just that subtree.
+  pass translated strings in as data (`i18n.t(...)`).
+- **Alpine support is built in** (and inert when Alpine is absent):
+  `i18n.js` auto-registers an `i18n` store and a `$t` magic when it sees
+  Alpine — `x-text="$t('Save', 'Enregistrer')"`, same signatures as
+  `i18n.t()`. `$t` reads the reactive store, so expressions re-evaluate
+  on language flip, and it covers `x-if` / `x-for` template content that
+  `i18n.apply()` never sees. Put the `i18n.js` script tag above the
+  Alpine tag (either order is guarded, but Alpine mustn't evaluate a
+  `$t` expression before wiring). For Alpine-inserted static markup you
+  can also call `i18n.apply(insertedEl)` on just that subtree.
 
 One design-system caveat: if a component library itself puts `lang`
 attributes on elements, `lang-blocks.css` would hide them — add
@@ -138,17 +140,17 @@ attributes on elements, `lang-blocks.css` would hide them — add
 ```
 
 The inline English is authored fallback — the source stays readable and the
-page degrades to EN if scripts fail. `I18N.apply()` overwrites it from the
+page degrades to EN if scripts fail. `i18n.apply()` overwrites it from the
 dictionary. `<title data-i18n>` works too (updates the tab title).
 
 ```js
-I18N.t('results.count', { count: 3 });  // '{count} request(s) found'
-I18N.setLang('fr');                     // re-applies DOM, fires onChange
-I18N.onChange(render);                  // re-render script-built UI
-I18N.report();                          // keys still awaiting translation
+i18n.t('results.count', { count: 3 });  // '{count} request(s) found'
+i18n.setLang('fr');                     // re-applies DOM, fires onChange
+i18n.onChange(render);                  // re-render script-built UI
+i18n.report();                          // keys still awaiting translation
 ```
 
-Load order: `i18n.js`, then `strings.js`, then `I18N.apply()` — at the end
+Load order: `i18n.js`, then `strings.js`, then `i18n.apply()` — at the end
 of `<body>` so the swap happens before first paint (no flash of English).
 
 Numbers and dates are formatting, not translation — use
