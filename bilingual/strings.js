@@ -4,10 +4,10 @@
  * the contract between markup/script and this file.
  *
  * English-first workflow: ship with fr set to null (or omitted) and the
- * page renders English for those keys; i18n.report() lists everything
+ * page renders English for those keys; intl.report() lists everything
  * still waiting on translation.
  */
-i18n.addMessages({
+intl.addMessages({
   'app.title':          { en: 'Client Onboarding',
                           fr: 'Accueil des clients' },
   'app.intro':          { en: 'Track <strong>new client</strong> requests through review and approval.',

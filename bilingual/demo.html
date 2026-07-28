@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <!-- The inline English below is authored fallback: the page reads fine
      in source and degrades to EN if scripts fail. apply() overwrites it. -->
-<title data-i18n="app.title">Client Onboarding</title>
+<title data-intl="app.title">Client Onboarding</title>
 <script>
   // Dual-DOM tier: set the language before first paint so lang-blocks.css
   // hides the right blocks with no flash of the wrong language.
-  // Placeholder detection — keep in lockstep with detectLang() in i18n.js.
+  // Placeholder detection — keep in lockstep with detectLang() in intl.js.
   document.documentElement.lang =
     /[?&]lang=fr/.test(location.search) ? 'fr' : 'en';
 </script>
@@ -26,24 +26,24 @@
 <body>
 
 <header>
-  <h1 data-i18n="app.title">Client Onboarding</h1>
+  <h1 data-intl="app.title">Client Onboarding</h1>
   <!-- Canadian convention: the toggle names the OTHER language.
        The dictionary handles that naturally — no special casing. -->
   <!-- lang-keep: labelled in the OTHER language on purpose; without it
        lang-blocks.css would hide the toggle itself. -->
-  <button id="langToggle" class="lang-keep" data-i18n="ui.langToggle" lang="fr">Français</button>
+  <button id="langToggle" class="lang-keep" data-intl="ui.langToggle" lang="fr">Français</button>
 </header>
 
-<p data-i18n-html="app.intro">Track <strong>new client</strong> requests through review and approval.</p>
+<p data-intl-html="app.intro">Track <strong>new client</strong> requests through review and approval.</p>
 
 <div class="search">
   <input type="search"
-         data-i18n-attr="placeholder:search.placeholder;title:search.tooltip"
+         data-intl-attr="placeholder:search.placeholder;title:search.tooltip"
          placeholder="Search by client name…">
-  <button data-i18n="search.button">Search</button>
+  <button data-intl="search.button">Search</button>
 </div>
 
-<!-- Everything below is script-rendered via i18n.t() -->
+<!-- Everything below is script-rendered via intl.t() -->
 <p id="greeting"></p>
 <p id="count"></p>
 <p id="updated" class="muted"></p>
@@ -53,7 +53,7 @@
 
 <!-- QUICK TIER: a throwaway widget — no dictionary keys, both languages
      inline in this file. data-fr rides beside the authored English. -->
-<h2 data-i18n>Quick widget</h2>
+<h2 data-intl>Quick widget</h2>
 <label for="speed" data-fr="Vitesse">Speed</label>
 <input id="speed" type="range" min="0" max="100" value="40"
        data-fr-title="Glisser pour régler" title="Drag to adjust">
@@ -80,55 +80,55 @@
   </label>
 </section>
 
-<script src="i18n.js"></script>
+<script src="intl.js"></script>
 <script src="strings.js"></script>
 <script>
 (function () {
   'use strict';
 
-  // Quick-tier heading: valueless data-i18n means the English text is the
+  // Quick-tier heading: valueless data-intl means the English text is the
   // key, and a flat entry supplies the French. Two lines total.
-  i18n.addMessages({ 'Quick widget': 'Petit widget' });
+  intl.addMessages({ 'Quick widget': 'Petit widget' });
 
   function locale() {
-    return i18n.getLang() === 'fr' ? 'fr-CA' : 'en-CA';
+    return intl.getLang() === 'fr' ? 'fr-CA' : 'en-CA';
   }
 
   function render() {
     // The toggle is labelled in the language it switches TO — keep its
     // lang attribute pointing there so screen readers pronounce it right.
     document.getElementById('langToggle')
-      .setAttribute('lang', i18n.getLang() === 'en' ? 'fr' : 'en');
+      .setAttribute('lang', intl.getLang() === 'en' ? 'fr' : 'en');
     document.getElementById('greeting').textContent =
-      i18n.t('results.greeting', { name: 'Joe' });
+      intl.t('results.greeting', { name: 'Joe' });
     document.getElementById('count').textContent =
-      i18n.t('results.count', { count: (1234).toLocaleString(locale()) });
+      intl.t('results.count', { count: (1234).toLocaleString(locale()) });
     document.getElementById('updated').textContent =
-      i18n.t('results.updated', {
+      intl.t('results.updated', {
         date: new Intl.DateTimeFormat(locale(), { dateStyle: 'long' }).format(new Date())
       });
     // Untranslated key: falls back to English, gets logged for report().
     document.getElementById('exportHint').textContent =
-      i18n.t('results.exportHint');
+      intl.t('results.exportHint');
     renderSpeed();
   }
 
   // Quick-tier script string: inline EN/FR pair, no dictionary.
   function renderSpeed() {
     document.getElementById('speedVal').textContent =
-      i18n.t('{n}% of maximum', '{n} % du maximum',
+      intl.t('{n}% of maximum', '{n} % du maximum',
              { n: document.getElementById('speed').value });
   }
   document.getElementById('speed').addEventListener('input', renderSpeed);
 
   document.getElementById('langToggle').addEventListener('click', function () {
-    i18n.setLang(i18n.getLang() === 'en' ? 'fr' : 'en');
+    intl.setLang(intl.getLang() === 'en' ? 'fr' : 'en');
   });
 
-  i18n.apply();
+  intl.apply();
   render();
-  i18n.onChange(render);
-  i18n.report(); // console: keys still waiting on French
+  intl.onChange(render);
+  intl.report(); // console: keys still waiting on French
 })();
 </script>
 </body>

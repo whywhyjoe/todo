@@ -1,21 +1,21 @@
 /*
- * i18n — bilingual EN/FR string swapper for SharePoint pages.
+ * intl — bilingual EN/FR string swapper for SharePoint pages.
  *
  * One dictionary holds both languages side by side (see strings.js).
- * HTML is marked up with data-i18n attributes; script code calls i18n.t().
+ * HTML is marked up with data-intl attributes; script code calls intl.t().
  * No dependencies, no build step — safe to paste into a Script Editor /
- * Content Editor web part. Exposes a single global: window.i18n.
+ * Content Editor web part. Exposes a single global: window.intl.
  *
  * Markup contract — keyed tier (bigger apps, strings live in strings.js):
- *   data-i18n="key"                          -> element textContent
- *   data-i18n-html="key"                     -> element innerHTML (trusted strings only)
- *   data-i18n-attr="placeholder:key;title:key2" -> named attributes
+ *   data-intl="key"                          -> element textContent
+ *   data-intl-html="key"                     -> element innerHTML (trusted strings only)
+ *   data-intl-attr="placeholder:key;title:key2" -> named attributes
  *
  * Quick tier (little widgets — no dictionary, no keys):
  *   <button data-fr="Rechercher">Search</button>   inline FR beside the EN
  *   data-fr-placeholder / -title / -alt / -value / -aria-label   for attributes
- *   i18n.t('Save', 'Enregistrer')                   inline pair in script
- *   <span data-i18n>Search</span>                   valueless: the EN text IS the
+ *   intl.t('Save', 'Enregistrer')                   inline pair in script
+ *   <span data-intl>Search</span>                   valueless: the EN text IS the
  *       dictionary key (gettext style, flat entries: { 'Search': 'Rechercher' })
  *
  * Dual-DOM tier (whole blocks per language — see lang-blocks.css):
@@ -24,7 +24,7 @@
  *   to keep form controls in the hidden block from submitting.
  *
  * Alpine.js (optional, auto-wired when Alpine is present):
- *   anywhere Alpine owns the text, use $t instead of data-i18n —
+ *   anywhere Alpine owns the text, use $t instead of data-intl —
  *   <span x-text="$t('Save', 'Enregistrer')"></span> — it re-evaluates
  *   on language flip, including x-if / x-for template content.
  *   Load this file above the Alpine <script> tag.
@@ -120,11 +120,11 @@
     var doc = global.document;
     var scope = root || doc;
 
-    each(scope.querySelectorAll('[data-i18n]'), function (el) {
-      // Valueless data-i18n: the element's own English text is the key.
+    each(scope.querySelectorAll('[data-intl]'), function (el) {
+      // Valueless data-intl: the element's own English text is the key.
       // Captured once so re-applying after a swap still finds it.
-      var key = el.getAttribute('data-i18n') || el.__i18nKey ||
-                (el.__i18nKey = el.textContent.trim());
+      var key = el.getAttribute('data-intl') || el.__intlKey ||
+                (el.__intlKey = el.textContent.trim());
       el.textContent = t(key);
     });
 
@@ -153,12 +153,12 @@
       }
     });
 
-    each(scope.querySelectorAll('[data-i18n-html]'), function (el) {
-      el.innerHTML = t(el.getAttribute('data-i18n-html'));
+    each(scope.querySelectorAll('[data-intl-html]'), function (el) {
+      el.innerHTML = t(el.getAttribute('data-intl-html'));
     });
 
-    each(scope.querySelectorAll('[data-i18n-attr]'), function (el) {
-      var pairs = el.getAttribute('data-i18n-attr').split(';');
+    each(scope.querySelectorAll('[data-intl-attr]'), function (el) {
+      var pairs = el.getAttribute('data-intl-attr').split(';');
       for (var i = 0; i < pairs.length; i++) {
         var pair = pairs[i].split(':');
         if (pair.length === 2) {
@@ -177,11 +177,11 @@
         if (inactive) {
           if (!c.disabled) {
             c.disabled = true;
-            c.__i18nDisabled = true; // only re-enable what we disabled
+            c.__intlDisabled = true; // only re-enable what we disabled
           }
-        } else if (c.__i18nDisabled) {
+        } else if (c.__intlDisabled) {
           c.disabled = false;
-          c.__i18nDisabled = false;
+          c.__intlDisabled = false;
         }
       });
     });
@@ -222,11 +222,11 @@
     }
     if (global.console) {
       if (rows.length === 0) {
-        global.console.log('i18n: no missing translations encountered.');
+        global.console.log('intl: no missing translations encountered.');
       } else if (global.console.table) {
         global.console.table(rows);
       } else {
-        global.console.log('i18n missing translations:', rows);
+        global.console.log('intl missing translations:', rows);
       }
     }
     return rows;
@@ -234,7 +234,7 @@
 
   /*
    * Alpine.js integration — first-class but fully guarded: with no Alpine
-   * on the page this is inert. Registers an 'i18n' store plus a $t magic
+   * on the page this is inert. Registers an 'intl' store plus a $t magic
    * that reads it, so Alpine expressions using $t re-evaluate on language
    * flip (including x-if / x-for template content apply() never sees).
    * Handles either load order: Alpine after us fires alpine:init; Alpine
@@ -244,13 +244,13 @@
   function wireAlpine(Alpine) {
     if (alpineWired || !Alpine || !Alpine.store || !Alpine.magic) return;
     alpineWired = true;
-    Alpine.store('i18n', { lang: current });
+    Alpine.store('intl', { lang: current });
     onChange(function (lang) {
-      Alpine.store('i18n').lang = lang;
+      Alpine.store('intl').lang = lang;
     });
     Alpine.magic('t', function () {
       return function (key, a, b) {
-        void Alpine.store('i18n').lang; // reactive dependency on the language
+        void Alpine.store('intl').lang; // reactive dependency on the language
         return t(key, a, b);
       };
     });
@@ -260,7 +260,7 @@
   });
   wireAlpine(global.Alpine);
 
-  global.i18n = {
+  global.intl = {
     t: t,
     apply: apply,
     setLang: setLang,

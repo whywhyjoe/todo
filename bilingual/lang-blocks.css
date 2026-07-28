@@ -3,7 +3,7 @@
  *
  * Author both languages as sibling elements carrying real lang
  * attributes; whichever doesn't match <html lang> is hidden. No classes,
- * no JS beyond i18n keeping <html lang> truthful (or the inline head
+ * no JS beyond intl keeping <html lang> truthful (or the inline head
  * snippet doing it before first paint — see README).
  *
  *   <section lang="en"> ...english block... </section>
