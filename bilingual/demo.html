@@ -90,10 +90,6 @@
   // key, and a flat entry supplies the French. Two lines total.
   intl.addMessages({ 'Quick widget': 'Petit widget' });
 
-  function locale() {
-    return intl.getLang() === 'fr' ? 'fr-CA' : 'en-CA';
-  }
-
   function render() {
     // The toggle is labelled in the language it switches TO — keep its
     // lang attribute pointing there so screen readers pronounce it right.
@@ -101,11 +97,12 @@
       .setAttribute('lang', intl.getLang() === 'en' ? 'fr' : 'en');
     document.getElementById('greeting').textContent =
       intl.t('results.greeting', { name: 'Joe' });
+    // Locale-bound formatters: native Intl pinned to the active language.
     document.getElementById('count').textContent =
-      intl.t('results.count', { count: (1234).toLocaleString(locale()) });
+      intl.t('results.count', { count: intl.NumberFormat().format(1234) });
     document.getElementById('updated').textContent =
       intl.t('results.updated', {
-        date: new Intl.DateTimeFormat(locale(), { dateStyle: 'long' }).format(new Date())
+        date: intl.DateTimeFormat({ dateStyle: 'long' }).format(new Date())
       });
     // Untranslated key: falls back to English, gets logged for report().
     document.getElementById('exportHint').textContent =

@@ -112,6 +112,26 @@
     return params ? format(str, params) : str;
   }
 
+  /*
+   * Locale-bound bridges to the built-in Intl (capital I) formatters:
+   * intl.NumberFormat(opts) / intl.DateTimeFormat(opts) return native
+   * formatters pinned to the active language's locale, so page code
+   * never computes a locale string. Works with or without `new`.
+   * Reach for capital-I Intl directly only to format in a locale other
+   * than the active one.
+   */
+  function locale() {
+    return current === 'fr' ? 'fr-CA' : 'en-CA';
+  }
+
+  function NumberFormat(opts) {
+    return new global.Intl.NumberFormat(locale(), opts);
+  }
+
+  function DateTimeFormat(opts) {
+    return new global.Intl.DateTimeFormat(locale(), opts);
+  }
+
   function each(nodeList, fn) {
     for (var i = 0; i < nodeList.length; i++) fn(nodeList[i]);
   }
@@ -265,6 +285,9 @@
     apply: apply,
     setLang: setLang,
     getLang: getLang,
+    locale: locale,
+    NumberFormat: NumberFormat,
+    DateTimeFormat: DateTimeFormat,
     addMessages: addMessages,
     onChange: onChange,
     report: report

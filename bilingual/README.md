@@ -153,13 +153,22 @@ intl.report();                          // keys still awaiting translation
 Load order: `intl.js`, then `strings.js`, then `intl.apply()` — at the end
 of `<body>` so the swap happens before first paint (no flash of English).
 
-Numbers and dates are formatting, not translation — use
-`Intl.NumberFormat` / `Intl.DateTimeFormat` with `fr-CA` / `en-CA`
-(see `render()` in the demo) rather than dictionary entries.
+Numbers and dates are formatting, not translation — never dictionary
+entries. The library bridges the browser's built-in `Intl` API with the
+active language's locale already pinned:
 
+```js
+intl.NumberFormat().format(1234)                        // '1,234' / '1 234'
+intl.DateTimeFormat({ dateStyle: 'long' }).format(d)    // 'July 28, 2026' / '28 juillet 2026'
+intl.NumberFormat({ style: 'currency', currency: 'CAD' }).format(9.5)
+intl.locale()                                           // 'en-CA' / 'fr-CA'
+```
+
+Same options as the native constructors (`new` optional) — the only
+thing added is the locale, so you never compute `'fr-CA'` by hand.
 Case matters: `intl` (lowercase) is this library; `Intl` (capital) is
-the browser's built-in formatting API used above. They're separate
-globals that work together — just don't typo one for the other.
+the browser's built-in API it delegates to. Reach for capital-I `Intl`
+directly only to format in a locale other than the active one.
 
 ## SharePoint notes — why not resx
 
