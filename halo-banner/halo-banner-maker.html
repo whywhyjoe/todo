@@ -1,0 +1,437 @@
+
+<script>
+
+  if (new URLSearchParams(window.location.search).has('Mode')) {
+      document.body.classList.add('editmode');
+  }
+
+</script>
+<script src="https://bmo.sharepoint.com/:u:/r/sites/TandO-FCU/SiteAssets/CodeAssets/Utilities/halo-banner-generator.js?c=5" defer></script>
+<sp-webpart-options
+    hide-in-editmode   
+    no-margin
+    >  
+</sp-webpart-options>
+
+<style>
+/* hide-webpart */
+body div.ControlZone:has(sp-webpart-options[hide-webpart]) {
+    display: none !important;
+}
+
+body.editmode div.ControlZone:has(sp-webpart-options[hide-webpart]) {
+    display: block !important;
+    padding: 0 !important;
+}
+
+body div.ControlZone:has(sp-webpart-options[hide-in-editmode]) .webpart-marker {
+    display: none !important;
+    padding: 0 !important;
+}
+
+body.editmode div.ControlZone:has(sp-webpart-options[hide-in-editmode]) .webpart-content {
+    display: none !important;
+    padding: 0 !important;
+}
+
+body.editmode div.ControlZone:has(sp-webpart-options[hide-in-editmode]) .webpart-marker {
+    display: block !important;
+    padding: 0 !important;
+}
+
+/* show-webpart */
+body div.ControlZone:has(sp-webpart-options[show-webpart]) {
+    display: block !important;
+}
+
+/* no-margin */
+body div.ControlZone:has(sp-webpart-options[no-margin]) {
+    margin: 0 !important;
+}
+
+/* Show all custom script web parts in edit mode */
+  body.editmode div.ControlZone:has(div[id~="BmoCustomScriptEditorWpWebPart"]) { display: block !important }
+
+/* Re-hide the custom script web part in preview mode */
+  html body.editmode:has(.commandBarWrapper button[name="Desktop"]) div.ControlZone:has(div[id~="BmoCustomScriptEditorWpWebPart"]):not(:has( sp-webpart-options[hide-in-editmode] )) { display: none !important }
+</style>
+
+
+
+<style>
+/* ############################################################
+  HALO BANNER: component styles. Copy everything down to the
+  DEMO CHROME marker.
+  Geometry locked to the .ai file:
+    inner clip Ø 1154.1324 · outer Ø 1201.1213 + 9 stroke
+    → visual outer edge 1210.1213 · artboard width 1024
+  ############################################################ */
+/* Dax Pro is not a system font: serve it yourself. Fill in real
+  paths and drop the comment markers, or delete this block and the
+  stack falls back to Segoe UI.
+@font-face { font-family:"Dax Pro"; src:url("DaxPro-Light.woff2") format("woff2");  font-weight:300; }
+@font-face { font-family:"Dax Pro"; src:url("DaxPro-Regular.woff2") format("woff2"); font-weight:400; }
+@font-face { font-family:"Dax Pro"; src:url("DaxPro-Medium.woff2") format("woff2");  font-weight:500; }
+@font-face { font-family:"Dax Pro"; src:url("DaxPro-Bold.woff2") format("woff2");   font-weight:700; }
+*/
+.halo-banner-link {
+ display: block;
+ text-decoration: none;
+ color: inherit;
+}
+.halo-banner {
+ container-type: inline-size;
+ position: relative;
+ --ab-h: 682.67;                       /* artboard height, width = 1024 units */
+ aspect-ratio: 1024 / var(--ab-h);
+ overflow: hidden;
+ width: 100%;
+ border-radius: var(--banner-radius, 0);
+ background: transparent;
+ isolation: isolate;
+}
+.halo-banner::before {
+ content: "";
+ position: absolute;
+ z-index: 0;
+ inset: 0;
+ background-image: var(--banner-image, none);
+ background-position: center;
+ background-size: cover;
+}
+.halo-banner::after {
+ content: "";
+ position: absolute;
+ z-index: 0;
+ inset: 0;
+ background-color: var(--banner-bg, #0075BE);
+ opacity: var(--banner-opacity, 1);
+ mix-blend-mode: var(--banner-blend, normal);
+ pointer-events: none;
+}
+/* ---- the halo (both circles as one welded unit) ---- */
+.halo {
+ --size: calc(118.1759cqw * var(--scale, 1));
+ position: absolute;
+ z-index: 1;
+ left: calc(var(--x, 31.63) * 1%);
+ top: calc(var(--y, 48.8) * 1%);
+ transform: translate(-50%, -50%) scale(1);
+ width: var(--size);
+ aspect-ratio: 1;
+ display: grid;
+ place-items: center;
+ margin: 0;
+ transition: transform .35s cubic-bezier(.2,.7,.3,1);
+}
+.halo::after {
+ content: "";
+ position: absolute;
+ inset: 0;
+ box-sizing: border-box;
+ border-radius: 50%;
+ border: calc(var(--size) * var(--ring-weight, 9) / 1210.1213) solid var(--ring-color, #fff);
+ pointer-events: none;
+}
+.halo__clip {
+ width: calc(var(--size) * 0.95373);
+ aspect-ratio: 1;
+ clip-path: circle(50%);
+}
+.halo__img {
+ width: 100%;
+ height: 100%;
+ object-fit: cover;
+ object-position: var(--photo-x, 50%) var(--photo-y, 50%);
+ transform: scale(var(--photo-zoom, 1));
+ transform-origin: var(--photo-x, 50%) var(--photo-y, 50%);
+ display: block;
+}
+/* ---- text overlay (always top z) ---- */
+.halo__text {
+ position: absolute;
+ z-index: 3;
+ left: calc(var(--text-x, 70) * 1%);
+ top: calc(var(--text-y, 50) * 1%);
+ transform: translate(-50%, -50%);
+ /* sizes are in artboard units: n ÷ 10.24 = cqw */
+ width: var(--text-w, auto);
+ height: var(--text-h, auto);
+ padding: var(--text-pad-y, 0) var(--text-pad-x, 0);
+ border-radius: var(--text-radius, 0);
+ font-family: var(--text-font, "Dax Pro"), "Segoe UI", system-ui, sans-serif;
+ font-weight: var(--text-weight, 400);
+ font-size: calc(var(--text-size, 40) / 10.24 * 1cqw);
+ line-height: 1.25;
+ color: var(--text-color, #fff);
+ opacity: 1;
+ display: block;
+ align-content: center;
+}
+.halo__text-bg {
+ z-index: 2;
+ background: var(--text-bg, transparent);
+ mix-blend-mode: var(--text-blend, normal);
+ transition: background .35s ease;
+ color: transparent !important;
+ pointer-events: none;
+}
+.halo__text-bg * { color: transparent !important; }
+/* span helpers for inline overrides; inline style="" also works */
+.halo__text .lt { font-weight: 300; }
+.halo__text .md { font-weight: 500; }
+.halo__text .b  { font-weight: 700; }
+.halo__text .sm { font-size: .7em; }
+.halo__text .lg { font-size: 1.4em; }
+/* ---- hover ---- */
+.halo-banner-link.has-link:hover .halo,
+.halo-banner-link.has-link:focus-visible .halo {
+ transform: translate(-50%, -50%) scale(var(--hover-scale, 1.05));
+}
+.halo-banner-link.has-link:hover .halo__text-bg,
+.halo-banner-link.has-link:focus-visible .halo__text-bg {
+ background: var(--text-bg-hover, var(--text-bg, transparent));
+}
+@media (prefers-reduced-motion: reduce) {
+ .halo, .halo__text-bg { transition: none; }
+}
+/* ############################################################
+  DEMO CHROME: generator UI, not part of the component
+  ############################################################ */
+
+.wrapper-body {
+ margin: 0;
+ font: 14px/1.5 "Segoe UI", system-ui, sans-serif;
+ color: #e8eaed;
+ background: #141517;
+ display: grid;
+ grid-template-columns: 400px 1fr;
+ min-height: 100vh;
+ box-sizing: border-box; 
+}
+@media (max-width: 760px) { .wrapper-body { grid-template-columns: 1fr; } }
+.panel { padding: 14px 16px; background: #26282c; border-right: 1px solid #34373c; overflow-y: auto; max-height: 100vh; }
+.panel-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 9px; }
+.panel h1 { font-size: 15px; margin: 0; }
+.panel-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+.panel-button { padding: 5px 9px; border: 1px solid #4a4e55; border-radius: 4px; color: #e8eaed; background: #2b2e33; cursor: pointer; font: inherit; }
+.panel-button:hover, .panel-button:focus-visible { border-color: #6c717a; background: #34383e; }
+.panel h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #4aa3e0; margin: 0 0 7px; }
+.panel section + section { margin-top: 9px; padding-top: 8px; border-top: 1px solid #34373c; }
+.field { margin-bottom: 6px; min-width: 0; }
+.field label {
+ display: flex; justify-content: space-between; align-items: baseline;
+ font-size: 12px; color: #9aa0a6; margin-bottom: 2px;
+}
+.field label[data-custom-for], .field label:has(.value-input) { cursor: text; border-radius: 3px; transition: background-color .15s ease, color .15s ease; }
+.field label[data-custom-for]:hover, .field label[data-custom-for]:focus-within,
+.field label:has(.value-input):hover, .field label:has(.value-input):focus-within { background: #30343a; color: #c7cbd1; }
+.value-input { width: 58px; padding: 0; border: 0; border-bottom: 1px solid transparent; background: transparent; color: #e8eaed; text-align: right; font: 500 12px/1 ui-monospace, Consolas, monospace; }
+.value-input:focus { outline: 0; border-bottom-color: #4aa3e0; }
+input[type=range] { width: 100%; accent-color: #4aa3e0; }
+input[type=file], input[type=text], select, textarea, .custom-value {
+ width: 100%; padding: 6px 8px; border-radius: 4px;
+ border: 1px solid #3d4046; background: #1f2023; color: #e8eaed; font-size: 12px;
+ font-family: inherit; box-sizing: border-box;
+}
+textarea { min-height: 34px; resize: vertical; font-family: ui-monospace, Consolas, monospace; }
+.custom-value[hidden], select[hidden] { display: none; }
+.check-field { display: flex; align-items: center; min-height: 28px; padding-top: 15px; }
+.check-field label { display: flex; gap: 5px; align-items: center; margin: 0; color: #e8eaed; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.link-row { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
+.stage { display: grid; justify-items: end; align-items: start; padding: 10px; }
+.stage-inner {
+ position: relative;
+ width: min(100%, 900px);
+ box-shadow: 0 8px 40px rgba(0,0,0,.5);
+ min-width: 160px;
+ max-width: 100%;
+ padding-bottom: 10px;
+}
+.stage-resizer {
+ position: absolute;
+ z-index: 3;
+ inset: 0 auto 10px -6px;
+ width: 12px;
+ border: 0;
+ padding: 0;
+ background: transparent;
+ cursor: ew-resize;
+ touch-action: none;
+}
+.stage-resizer::after {
+ content: "";
+ position: absolute;
+ inset: 0 auto 0 5px;
+ width: 2px;
+ background: rgba(255,255,255,.2);
+ transition: background-color .15s ease, width .15s ease;
+}
+.stage-resizer:hover::after,
+.stage-resizer:focus-visible::after,
+.stage-resizer.is-resizing::after { width: 3px; background: #4aa3e0; }
+.stage-resizer:focus-visible { outline: 1px solid #4aa3e0; outline-offset: 1px; }
+.code-view pre { margin: 0; padding: 10px; border: 1px solid #3d4046; border-radius: 4px; background: #1a1b1e; font: 12px/1.6 ui-monospace, Consolas, monospace; color: #b6d7ee; white-space: pre-wrap; overflow-wrap: anywhere; }
+</style>
+
+<div class="webpart-marker">
+  <b>Halo webpart generator.</b> Ensure web part is placed above the fold on the page. Lower placement will delay loading and cause unexpected behavior.
+</div>
+
+<div class="wrapper-body webpart-content" data-halo-generator>
+<div class="panel">
+<div class="panel-title">
+<h1>Halo Banner Generator</h1>
+<div class="panel-actions">
+<button class="panel-button" id="copy" type="button">Copy Code</button>
+<button class="panel-button" id="toggle-code" type="button" aria-expanded="false">Show Code</button>
+</div>
+</div>
+<div class="panel-controls" id="panel-controls">
+<section>
+<h2>Design: halo</h2>
+<div class="field"><label>Scale <input class="value-input" id="v-scale" aria-label="Scale value"></label>
+<input type="range" id="scale" min="0.2" max="1.6" step="0.01"></div>
+<div class="row2">
+<div class="field"><label>Position X <input class="value-input" id="v-x" aria-label="Position X value"></label>
+<input type="range" id="x" min="-60" max="160" step="0.1"></div>
+<div class="field"><label>Position Y <input class="value-input" id="v-y" aria-label="Position Y value"></label>
+<input type="range" id="y" min="-60" max="160" step="0.1"></div>
+</div><div class="row2">
+<div class="field"><label>Stroke weight <input class="value-input" id="v-rw" aria-label="Stroke weight value"></label>
+<input type="range" id="rw" min="0" max="40" step="0.5"></div>
+<div class="field"><label>Artboard height <input class="value-input" id="v-abh" aria-label="Artboard height value"></label>
+<input type="range" id="abh" min="200" max="1400" step="1"></div>
+</div>
+</section>
+<section>
+<h2>Photo: inner fill</h2>
+<div class="field"><label>Zoom <input class="value-input" id="v-pz" aria-label="Photo zoom value"></label>
+<input type="range" id="pz" min="1" max="3" step="0.01"></div>
+<div class="row2"><div class="field"><label>Pan X <input class="value-input" id="v-ppx" aria-label="Photo pan X value"></label>
+<input type="range" id="ppx" min="0" max="100" step="1"></div>
+<div class="field"><label>Pan Y <input class="value-input" id="v-ppy" aria-label="Photo pan Y value"></label>
+<input type="range" id="ppy" min="0" max="100" step="1"></div>
+</div>
+<div class="field"><label>Photo URL</label><input type="text" id="purl" placeholder="https://…" spellcheck="false"></div>
+<div class="field"><label>Photo alt text</label><input type="text" id="palt"></div>
+</section>
+<section>
+<h2>Text</h2>
+<div class="field"><label>Content (HTML ok: spans for overrides)</label>
+<textarea id="ttext" spellcheck="false"></textarea></div>
+<div class="row2">
+<div class="field"><label data-custom-for="tfont">Font</label>
+<select id="tfont">
+<option value='"Dax Pro"'>Dax Pro</option>
+<option value='"Segoe UI"'>Segoe UI</option>
+</select></div>
+<div class="field"><label data-custom-for="tweight">Weight</label>
+<select id="tweight">
+<option value="300">Light</option>
+<option value="400">Regular</option>
+<option value="500">Medium</option>
+<option value="700">Bold</option>
+</select></div>
+</div>
+<div class="field"><label>Size <input class="value-input" id="v-tsize" aria-label="Text size value"></label>
+<input type="range" id="tsize" min="12" max="140" step="1"></div>
+<div class="row2"><div class="field"><label>Position X <input class="value-input" id="v-tx" aria-label="Text position X value"></label>
+<input type="range" id="tx" min="0" max="100" step="0.5"></div>
+<div class="field"><label>Position Y <input class="value-input" id="v-ty" aria-label="Text position Y value"></label>
+<input type="range" id="ty" min="0" max="100" step="0.5"></div>
+</div><div class="row2"><div class="field"><label>Width (0 = auto) <input class="value-input" id="v-tw" aria-label="Text width value"></label>
+<input type="range" id="tw" min="0" max="1024" step="4"></div>
+<div class="field"><label>Height (0 = auto) <input class="value-input" id="v-th" aria-label="Text height value"></label>
+<input type="range" id="th" min="0" max="600" step="4"></div>
+</div><div class="row2">
+<div class="field"><label>Padding X <input class="value-input" id="v-tpadx" aria-label="Horizontal padding value"></label><input type="range" id="tpadx" min="0" max="80" step="1"></div>
+<div class="field"><label>Padding Y <input class="value-input" id="v-tpady" aria-label="Vertical padding value"></label><input type="range" id="tpady" min="0" max="80" step="1"></div>
+</div>
+<div class="field check-field"><label><input type="checkbox" id="trad"> Rounded corners</label></div>
+
+<!-- </section>
+<section>
+<h2>Text colors</h2> -->
+<div class="row2">
+<div class="field"><label data-custom-for="tcolor">Text color</label>
+<select id="tcolor"></select></div>
+<div class="field"><label data-custom-for="tbg">BG color</label>
+<select id="tbg"></select></div>
+</div>
+<div class="row2">
+<div class="field"><label data-custom-for="tbgo">BG opacity</label>
+<select id="tbgo"></select></div>
+<div class="field check-field"><label><input type="checkbox" id="tblend"> Multiply</label></div>
+</div>
+</section>
+<section>
+<h2>Link</h2>
+<div class="link-row"><div class="field"><label>URL</label>
+<input type="text" id="lurl" placeholder="https://…" spellcheck="false"></div>
+<div class="field check-field"><label><input type="checkbox" id="ltarget"> New tab</label></div></div>
+</section>
+<section>
+<h2>Banner</h2>
+<div class="row2">
+<div class="field"><label data-custom-for="bg">Background color</label><select id="bg"></select></div>
+<div class="field"><label data-custom-for="rc">Ring</label><select id="rc"></select></div>
+</div><div class="row2">
+<div class="field"><label>Background image</label><input type="text" id="bgurl" placeholder="https://…" spellcheck="false"></div>
+<div class="field"><label data-custom-for="bgopacity">Overlay opacity</label><select id="bgopacity"></select></div>
+</div>
+<div class="row2">
+<div class="field check-field"><label><input type="checkbox" id="bgrounded"> Rounded corners</label></div>
+<div class="field check-field"><label><input type="checkbox" id="bgblend"> Multiply</label></div>
+</div>
+</section>
+</div>
+<div class="code-view" id="code-view" hidden><pre id="out"></pre></div>
+</div>
+<div class="stage">
+<div class="stage-inner">
+<button class="stage-resizer" id="stage-resizer" type="button" aria-label="Resize preview" title="Drag to resize preview"></button>
+<a class="halo-banner-link" id="link">
+<div class="halo-banner" id="scene">
+<figure class="halo">
+<div class="halo__clip"><img class="halo__img" id="img" alt="" src="https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b"></div>
+</figure>
+<div class="halo__text halo__text-bg" id="text-bg" aria-hidden="true" inert></div>
+<div class="halo__text" id="text"></div>
+</div>
+</a>
+</div>
+</div>
+</div>
+
+<hr>
+<div style="width: 50%; padding 20px">
+<div class="halo-banner-link">
+<div class="halo-banner" style="
+ --ab-h: 680;
+ --banner-bg: #0079c1;  --banner-image: none;
+ --banner-opacity: 100%;  --banner-blend: normal;
+ --banner-radius: 0.977cqw;
+ --scale: 0.96;  --x: 35;  --y: 50;
+ --ring-weight: 9;  --ring-color: #FFFFFF;
+ --photo-zoom: 1;  --photo-x: 50%;  --photo-y: 50%;
+ --hover-scale: 1.05;
+ --text-font: "Dax Pro";  --text-weight: 400;  --text-size: 50;
+ --text-x: 40;  --text-y: 80;
+ --text-w: 68.848cqw;
+ --text-h: 8.301cqw;
+ --text-pad-x: 2.930cqw;  --text-pad-y: 2.441cqw;
+ --text-radius: 0.977cqw;
+ --text-color: #FFFFFF;  --text-blend: normal;
+ --text-bg: color-mix(in srgb, #005789 100%, transparent);
+ --text-bg-hover: color-mix(in srgb, color-mix(in srgb, #005789 80%, white) 100%, transparent);">
+<figure class="halo">
+<div class="halo__clip"><img class="halo__img" src="https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b" alt="City skyline"></div>
+</figure>
+<div class="halo__text halo__text-bg" aria-hidden="true" inert>Meet the <span class="b">Insights</span> team</div>
+<div class="halo__text">Meet the <span class="b">Insights</span> team</div>
+</div>
+</div>
+</div>
