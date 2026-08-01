@@ -1,0 +1,274 @@
+// ───────────────────────────────────────────────────────────────────────────
+//  PUBLIC — HTML control helpers
+// ───────────────────────────────────────────────────────────────────────────
+
+// Returns your HTML surrounded by a div that will suppress the HTML control's own scrollbars.
+ScrollSafeDiv(Style:Text, HTML:Text):Text - $"<div style='width: 100%; height: 100%; inset: 0; position: absolute; {style}'>{HTML}</div>
+
+// Returns a ScrollSafeDiv with a specified background image, set to contain top left.
+BackdropDiv(BackgroundImageUri:Text, StyleOverride:Text, HTML:Text):Text =
+    $"<div style='width:100%; height:100%;
+        background-image:url({BackgroundImageUri}); background-size:contain;
+        background-repeat:no-repeat; background-position:center;
+        {StyleOverride}'>{HTML}</div>"
+
+SvgUri(svg:Text):Text = "data:image/svg+xml;charset=utf-8," & EncodeUrl(svg)
+
+BackdropDiv(svg, "", "")
+
+// Every number going into a style string MUST pass through this.
+// Locale-safe: forces dot decimal, no thousands separator, in all regions.
+Nt(n: Number): Text =
+    Text(n, "[$-en-US]0.####", "en-US");
+
+// Get a pixel value back from a number
+Npx(px: Number): Text = ${Nt(px)}px;
+
+// CSS transform builder. Identity is TxCss(0, 0, 1, 0).
+TxCss(dx: Number, dy: Number, scale: Number, rotation: Number): Text =
+    "translate(" & Nt(dx) & "px," & Nt(dy) & "px) scale(" & Nt(scale) & ") rotate(" & Nt(rotation) & "deg)";
+
+
+// Inline SVG and <style> are blocked by the HTML control saniizer.
+// This wraps an SVG string as a data-URI background so @keyframes survive.
+SvgBg(svg: Text): Text =
+    "background-repeat:no-repeat;background-position:center;background-size:contain;background-image:url(""data:image/svg+xml;charset=utf-8," & EncodeUrl(svg) & """)";
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  CANVAS ANIMATION UTILITY
+//  Paste everything below into  App > Formulas
+// ═══════════════════════════════════════════════════════════════════════════
+//
+//  ── ONE-TIME SETUP ────────────────────────────────────────────────────────
+//  1. Create a canvas component named  Clock
+//       - Put a Timer inside it:  Duration 86400000, AutoStart true, Repeat false
+//       - Add an output property   Value (Number) = Timer1.Value
+//  2. Drop it on EVERY screen. Control names are app-unique, so each
+//     instance needs its own name — name them by screen, not Clock1/Clock2:
+//       ClkHome, ClkDetail, ClkSettings ...
+//     Typing "Clk" in IntelliSense then lists every clock in the app.
+//
+//  3. Timers only tick on the ACTIVE screen. There is no app-wide clock —
+//     one instance per screen is required, not a style choice.
+//
+//  4. Each screen's timer restarts at 0 when the screen is re-shown, so
+//     stale trigger variables go negative and park the animation at FROM.
+//     Clear them:   Screen.OnVisible:  UpdateContext({tCard: Blank(), tPanel: Blank()})
+//
+//  NOTE: every example below writes  Clock.Value  as shorthand for
+//        "this screen's clock instance" — substitute ClkHome.Value etc.
+//
+//  ── THE ONLY SYNTAX YOU NEED ──────────────────────────────────────────────
+//
+//      Tween<Mode>(Clock.Value, WHEN, HOW_LONG_MS, FROM, TO, EASE)
+//
+//  MODE   Once       runs once, holds at the end
+//         Loop       fills, snaps back, fills again      (loading bars)
+//         PingPong   bounces back and forth              (pulses, breathing)
+//
+//  WHEN   0          starts on screen load
+//         tThing     starts on  UpdateContext({tThing: Clock.Value})
+//
+//  EASE   "out"      click-triggered entrances   <- default choice
+//         "inout"    screen-load motion
+//         "in"       exits
+//         "linear"   anything looping
+//         "pop"      overshoot. position/scale ONLY, never opacity
+//
+//  Reverse?  swap FROM and TO
+//  Delay?    tThing + 200
+//  Replay?   UpdateContext({tThing: Clock.Value}) again
+//  Reset?    UpdateContext({tThing: Blank()})
+//
+//  Use CONTEXT variables (UpdateContext), never Set(). They are screen-scoped,
+//  so tCard on one screen is independent of tCard on another, and a duplicated
+//  screen keeps working instead of silently sharing state with its original.
+//
+//  Name every trigger variable  t<Something>  = "time it started"
+// ═══════════════════════════════════════════════════════════════════════════
+
+
+// ───────────────────────────────────────────────────────────────────────────
+//  PUBLIC — the three you type
+// ───────────────────────────────────────────────────────────────────────────
+
+TweenOnce(now: Number, startAt: Number, duration: Number, from: Number, to: Number, ease: Text): Number =
+    Lerp(from, to, Ease(PctHold(now, startAt, duration), ease));
+
+TweenLoop(now: Number, startAt: Number, duration: Number, from: Number, to: Number, ease: Text): Number =
+    Lerp(from, to, Ease(PctLoop(now, startAt, duration), ease));
+
+TweenPingPong(now: Number, startAt: Number, duration: Number, from: Number, to: Number, ease: Text): Number =
+    Lerp(from, to, Ease(PctPing(now, startAt, duration), ease));
+
+
+
+// ───────────────────────────────────────────────────────────────────────────
+//  INTERNALS — don't touch unless you're in a good mood
+// ───────────────────────────────────────────────────────────────────────────
+
+Lerp(a: Number, b: Number, p: Number): Number =
+    a + (b - a) * p;
+
+Ease(p: Number, kind: Text): Number =
+    Switch(Lower(Trim(kind)),
+        "linear", p,
+        "in",     p * p,
+        "out",    1 - Power(1 - p, 2),
+        "pop",    1 + 2.70158 * Power(p - 1, 3) + 1.70158 * Power(p - 1, 2),
+        If(p < 0.5, 2 * p * p, 1 - Power(-2 * p + 2, 2) / 2)
+    );
+
+PctHold(now: Number, startAt: Number, duration: Number): Number =
+    If(IsBlank(startAt) || now - startAt <= 0, 0,
+       duration <= 0, 1,
+       Min((now - startAt) / duration, 1));
+
+PctLoop(now: Number, startAt: Number, duration: Number): Number =
+    If(IsBlank(startAt) || now - startAt <= 0, 0,
+       duration <= 0, 1,
+       Mod(now - startAt, duration) / duration);
+
+PctPing(now: Number, startAt: Number, duration: Number): Number =
+    If(IsBlank(startAt) || now - startAt <= 0, 0,
+       duration <= 0, 1,
+       With({ c: Mod(now - startAt, duration * 2) / duration },
+            If(c <= 1, c, 2 - c)));
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  RECIPES
+// ═══════════════════════════════════════════════════════════════════════════
+//
+//  Slide in on screen load
+//      X  =  TweenOnce(Clock.Value, 0, 400, -200, 24, "inout")
+//
+//  Slide in on click            OnSelect: UpdateContext({tCard: Clock.Value})
+//      X  =  TweenOnce(Clock.Value, tCard, 300, -200, 24, "out")
+//
+//  Slide out on click
+//      X  =  TweenOnce(Clock.Value, tCard, 300, 24, -200, "in")
+//
+//  Pop in with overshoot
+//      Width  =  TweenOnce(Clock.Value, tCard, 400, 0, 240, "pop")
+//
+//  Staggered gallery reveal
+//      X  =  TweenOnce(Clock.Value, ThisItem.Index * 60, 300, -40, 0, "out")
+//
+//  Delayed entrance
+//      X  =  TweenOnce(Clock.Value, tCard + 200, 300, -40, 0, "out")
+//
+//  Loading bar, refills forever
+//      Width  =  TweenLoop(Clock.Value, 0, 1500, 0, 300, "linear")
+//
+//  Spin forever  (inside a transform on an HTML control)
+//      TweenLoop(Clock.Value, 0, 1000, 0, 360, "linear")
+//
+//  Pulse forever
+//      TweenPingPong(Clock.Value, 0, 800, 0.95, 1.05, "inout")
+//
+//  Fade + rise in an HTML control
+//      With({ p: TweenOnce(Clock.Value, tCard, 300, 0, 1, "out") },
+//        $"<div style='opacity:{Nt(p)};transform:{TxCss(0, Lerp(16, 0, p), 1, 0)}'>Content</div>")
+//
+//  Self-animating SVG that also slides in
+//      HtmlText  =  $"<div style='width:100%;aspect-ratio:1;{SvgBg(svgSpinner)}'></div>"   <- CONSTANT
+//      X         =  TweenOnce(Clock.Value, tLoad, 300, -60, 24, "out")
+//
+// ═══════════════════════════════════════════════════════════════════════════
+//  GOTCHAS
+// ═══════════════════════════════════════════════════════════════════════════
+//
+//  * A string containing SELF-ANIMATING SVG must be CONSTANT.
+//    If HtmlText changes, the control re-renders and the SVG's internal
+//    @keyframes restart from frame 0. Never put Self.Width or a Tween
+//    inside a string that holds an animated SVG — animate the CONTROL's
+//    X / Y / Width / Height instead. Static SVG is fine to rebuild freely.
+//
+//  * Clear trigger variables in Screen.OnVisible. The clock resets to 0 on
+//    revisit; a stale tThing from last visit makes now - startAt negative,
+//    which silently parks the animation at FROM until re-triggered.
+//
+//  * UpdateContext does NOT work in App.OnStart, and a component cannot write
+//    to its host screen's context. If a trigger lives inside a component, use
+//    an output property plus OnChange on the instance to relay it.
+//
+//  * "pop" returns values outside 0-1. Position and scale only.
+//
+//  * Visible = false probably unmounts the control, so internal SVG
+//    animation restarts on re-show. Usually what you want anyway.
+//
+//  * width:100% + aspect-ratio beats Self.Width — no dependency, no re-render.
+//
+//  * Use rgb(0,120,212) not #0078D4 inside SVG data URIs. Shorter encoded
+//    string and easier to debug by pasting the URI into a browser bar.
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+//  RECIPES
+// ═══════════════════════════════════════════════════════════════════════════
+//
+//  Slide in on screen load
+//      X  =  TweenOnce(Clock.Value, 0, 400, -200, 24, "inout")
+//
+//  Slide in on click            OnSelect: UpdateContext({tCard: Clock.Value})
+//      X  =  TweenOnce(Clock.Value, tCard, 300, -200, 24, "out")
+//
+//  Slide out on click
+//      X  =  TweenOnce(Clock.Value, tCard, 300, 24, -200, "in")
+//
+//  Pop in with overshoot
+//      Width  =  TweenOnce(Clock.Value, tCard, 400, 0, 240, "pop")
+//
+//  Staggered gallery reveal
+//      X  =  TweenOnce(Clock.Value, ThisItem.Index * 60, 300, -40, 0, "out")
+//
+//  Delayed entrance
+//      X  =  TweenOnce(Clock.Value, tCard + 200, 300, -40, 0, "out")
+//
+//  Loading bar, refills forever
+//      Width  =  TweenLoop(Clock.Value, 0, 1500, 0, 300, "linear")
+//
+//  Spin forever  (inside a transform on an HTML control)
+//      TweenLoop(Clock.Value, 0, 1000, 0, 360, "linear")
+//
+//  Pulse forever
+//      TweenPingPong(Clock.Value, 0, 800, 0.95, 1.05, "inout")
+//
+//  Fade + rise in an HTML control
+//      With({ p: TweenOnce(Clock.Value, tCard, 300, 0, 1, "out") },
+//        $"<div style='opacity:{Nt(p)};transform:{TxCss(0, Lerp(16, 0, p), 1, 0)}'>Content</div>")
+//
+//  Self-animating SVG that also slides in
+//      HtmlText  =  $"<div style='width:100%;aspect-ratio:1;{SvgBg(svgSpinner)}'></div>"   <- CONSTANT
+//      X         =  TweenOnce(Clock.Value, tLoad, 300, -60, 24, "out")
+//
+// ═══════════════════════════════════════════════════════════════════════════
+//  GOTCHAS
+// ═══════════════════════════════════════════════════════════════════════════
+//
+//  * A string containing SELF-ANIMATING SVG must be CONSTANT.
+//    If HtmlText changes, the control re-renders and the SVG's internal
+//    @keyframes restart from frame 0. Never put Self.Width or a Tween
+//    inside a string that holds an animated SVG — animate the CONTROL's
+//    X / Y / Width / Height instead. Static SVG is fine to rebuild freely.
+//
+//  * Clear trigger variables in Screen.OnVisible. The clock resets to 0 on
+//    revisit; a stale tThing from last visit makes now - startAt negative,
+//    which silently parks the animation at FROM until re-triggered.
+//
+//  * UpdateContext does NOT work in App.OnStart, and a component cannot write
+//    to its host screen's context. If a trigger lives inside a component, use
+//    an output property plus OnChange on the instance to relay it.
+//
+//  * "pop" returns values outside 0-1. Position and scale only.
+//
+//  * Visible = false probably unmounts the control, so internal SVG
+//    animation restarts on re-show. Usually what you want anyway.
+//
+//  * width:100% + aspect-ratio beats Self.Width — no dependency, no re-render.
+//
+//  * Use rgb(0,120,212) not #0078D4 inside SVG data URIs. Shorter encoded
+//    string and easier to debug by pasting the URI into a browser bar.
+//
+// ═══════════════════════════════════════════════════════════════════════════
