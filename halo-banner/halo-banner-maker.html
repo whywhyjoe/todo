@@ -6,6 +6,7 @@
   }
 
 </script>
+<script src="halo-banner-maker.js"></script>
 <script src="https://bmo.sharepoint.com/:u:/r/sites/TandO-FCU/SiteAssets/CodeAssets/Utilities/halo-banner-generator.js?c=5" defer></script>
 <sp-webpart-options
     hide-in-editmode   
@@ -58,13 +59,14 @@ body div.ControlZone:has(sp-webpart-options[no-margin]) {
 
 
 
-<style>
+<style id="halo-banner-css">
 /* ############################################################
-  HALO BANNER: component styles. Copy everything down to the
-  DEMO CHROME marker.
+  HALO BANNER: component styles. The Copy Code button bundles
+  this whole block into the generated snippet automatically,
+  so pasted banners are self-contained.
   Geometry locked to the .ai file:
-    inner clip Ø 1154.1324 · outer Ø 1201.1213 + 9 stroke
-    → visual outer edge 1210.1213 · artboard width 1024
+    inner clip dia 1154.1324, outer dia 1201.1213 + 9 stroke
+    -> visual outer edge 1210.1213, artboard width 1024
   ############################################################ */
 /* Dax Pro is not a system font: serve it yourself. Fill in real
   paths and drop the comment markers, or delete this block and the
@@ -154,7 +156,7 @@ body div.ControlZone:has(sp-webpart-options[no-margin]) {
  left: calc(var(--text-x, 70) * 1%);
  top: calc(var(--text-y, 50) * 1%);
  transform: translate(-50%, -50%);
- /* sizes are in artboard units: n ÷ 10.24 = cqw */
+ /* sizes are in artboard units: n / 10.24 = cqw */
  width: var(--text-w, auto);
  height: var(--text-h, auto);
  padding: var(--text-pad-y, 0) var(--text-pad-x, 0);
@@ -195,6 +197,9 @@ body div.ControlZone:has(sp-webpart-options[no-margin]) {
 @media (prefers-reduced-motion: reduce) {
  .halo, .halo__text-bg { transition: none; }
 }
+</style>
+
+<style>
 /* ############################################################
   DEMO CHROME: generator UI, not part of the component
   ############################################################ */
@@ -214,8 +219,15 @@ body div.ControlZone:has(sp-webpart-options[no-margin]) {
 .panel-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 9px; }
 .panel h1 { font-size: 15px; margin: 0; }
 .panel-actions { display: flex; gap: 6px; flex: 0 0 auto; }
-.panel-button { padding: 5px 9px; border: 1px solid #4a4e55; border-radius: 4px; color: #e8eaed; background: #2b2e33; cursor: pointer; font: inherit; }
-.panel-button:hover, .panel-button:focus-visible { border-color: #6c717a; background: #34383e; }
+.panel-button {
+ display: inline-flex; align-items: center; gap: 5px;
+ padding: 4px 8px; border: 1px solid #4a4e55; border-radius: 5px;
+ color: #c7cbd1; background: transparent; cursor: pointer;
+ font: inherit; font-size: 12px; line-height: 1;
+ transition: color .15s ease, background-color .15s ease, border-color .15s ease;
+}
+.panel-button:hover, .panel-button:focus-visible { border-color: #6c717a; background: #34383e; color: #fff; }
+.panel-button svg { width: 12px; height: 12px; flex: none; }
 .panel h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #4aa3e0; margin: 0 0 7px; }
 .panel section + section { margin-top: 9px; padding-top: 8px; border-top: 1px solid #34373c; }
 .field { margin-bottom: 6px; min-width: 0; }
@@ -234,44 +246,76 @@ input[type=file], input[type=text], select, textarea, .custom-value {
  border: 1px solid #3d4046; background: #1f2023; color: #e8eaed; font-size: 12px;
  font-family: inherit; box-sizing: border-box;
 }
+/* the native arrow reserves ~24px; a drawn one costs 20px and leaves
+  more of a narrow dropdown for the value itself */
+select {
+ appearance: none;
+ padding: 6px 20px 6px 7px;
+ background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6' fill='none' stroke='%239aa0a6' stroke-width='1.5'%3E%3Cpath d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+ background-repeat: no-repeat;
+ background-position: right 7px center;
+ background-size: 9px 6px;
+}
 textarea { min-height: 34px; resize: vertical; font-family: ui-monospace, Consolas, monospace; }
 .custom-value[hidden], select[hidden] { display: none; }
 .check-field { display: flex; align-items: center; min-height: 28px; padding-top: 15px; }
 .check-field label { display: flex; gap: 5px; align-items: center; margin: 0; color: #e8eaed; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-.link-row { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
-.stage { display: grid; justify-items: end; align-items: start; padding: 10px; }
+/* colors row: give the swatch dropdowns room to show their full value,
+  buy it back from the opacity select, which only ever holds "100%" */
+.row-colors { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(110px, 1fr) 60px max-content; gap: 6px; }
+.row-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
+/* extra left padding keeps room for the resizer, which sits outside the preview */
+.stage { display: grid; justify-items: end; align-items: start; padding: 10px 10px 10px 34px; }
 .stage-inner {
  position: relative;
  width: min(100%, 900px);
  box-shadow: 0 8px 40px rgba(0,0,0,.5);
  min-width: 160px;
  max-width: 100%;
- padding-bottom: 10px;
 }
 .stage-resizer {
  position: absolute;
  z-index: 3;
- inset: 0 auto 10px -6px;
- width: 12px;
+ inset: 0 auto 0 -24px;   /* clears the preview edge by 8px */
+ width: 16px;
  border: 0;
  padding: 0;
  background: transparent;
  cursor: ew-resize;
  touch-action: none;
 }
+/* full-height track */
 .stage-resizer::after {
  content: "";
  position: absolute;
- inset: 0 auto 0 5px;
+ inset: 0 auto 0 7px;
  width: 2px;
  background: rgba(255,255,255,.2);
  transition: background-color .15s ease, width .15s ease;
 }
+/* grab handle: grip dots on a pill, centred on the track */
+.stage-resizer::before {
+ content: "";
+ position: absolute;
+ z-index: 1;
+ top: 50%;
+ left: 50%;
+ transform: translate(-50%, -50%);
+ width: 9px;
+ height: 38px;
+ border-radius: 5px;
+ border: 1px solid #565b63;
+ background: #34383e radial-gradient(circle, #9aa0a6 1px, transparent 1.2px) center / 100% 12px repeat-y;
+ transition: border-color .15s ease, background-color .15s ease;
+}
 .stage-resizer:hover::after,
 .stage-resizer:focus-visible::after,
 .stage-resizer.is-resizing::after { width: 3px; background: #4aa3e0; }
+.stage-resizer:hover::before,
+.stage-resizer:focus-visible::before,
+.stage-resizer.is-resizing::before { border-color: #4aa3e0; background-color: #3d4650; }
 .stage-resizer:focus-visible { outline: 1px solid #4aa3e0; outline-offset: 1px; }
 .code-view pre { margin: 0; padding: 10px; border: 1px solid #3d4046; border-radius: 4px; background: #1a1b1e; font: 12px/1.6 ui-monospace, Consolas, monospace; color: #b6d7ee; white-space: pre-wrap; overflow-wrap: anywhere; }
 </style>
@@ -285,16 +329,22 @@ textarea { min-height: 34px; resize: vertical; font-family: ui-monospace, Consol
 <div class="panel-title">
 <h1>Halo Banner Generator</h1>
 <div class="panel-actions">
-<button class="panel-button" id="copy" type="button">Copy Code</button>
-<button class="panel-button" id="toggle-code" type="button" aria-expanded="false">Show Code</button>
+<button class="panel-button" id="copy" type="button" title="Copy the banner code to the clipboard">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+<span>Copy</span>
+</button>
+<button class="panel-button" id="toggle-code" type="button" aria-expanded="false" title="Toggle the generated code view">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+<span>Show code</span>
+</button>
 </div>
 </div>
 <div class="panel-controls" id="panel-controls">
 <section>
 <h2>Design: halo</h2>
+<div class="row3">
 <div class="field"><label>Scale <input class="value-input" id="v-scale" aria-label="Scale value"></label>
 <input type="range" id="scale" min="0.2" max="1.6" step="0.01"></div>
-<div class="row2">
 <div class="field"><label>Position X <input class="value-input" id="v-x" aria-label="Position X value"></label>
 <input type="range" id="x" min="-60" max="160" step="0.1"></div>
 <div class="field"><label>Position Y <input class="value-input" id="v-y" aria-label="Position Y value"></label>
@@ -308,15 +358,18 @@ textarea { min-height: 34px; resize: vertical; font-family: ui-monospace, Consol
 </section>
 <section>
 <h2>Photo: inner fill</h2>
+<div class="row3">
 <div class="field"><label>Zoom <input class="value-input" id="v-pz" aria-label="Photo zoom value"></label>
 <input type="range" id="pz" min="1" max="3" step="0.01"></div>
-<div class="row2"><div class="field"><label>Pan X <input class="value-input" id="v-ppx" aria-label="Photo pan X value"></label>
+<div class="field"><label>Pan X <input class="value-input" id="v-ppx" aria-label="Photo pan X value"></label>
 <input type="range" id="ppx" min="0" max="100" step="1"></div>
 <div class="field"><label>Pan Y <input class="value-input" id="v-ppy" aria-label="Photo pan Y value"></label>
 <input type="range" id="ppy" min="0" max="100" step="1"></div>
 </div>
-<div class="field"><label>Photo URL</label><input type="text" id="purl" placeholder="https://…" spellcheck="false"></div>
+<div class="row2">
+<div class="field"><label>Photo URL</label><input type="text" id="purl" placeholder="https://..." spellcheck="false"></div>
 <div class="field"><label>Photo alt text</label><input type="text" id="palt"></div>
+</div>
 </section>
 <section>
 <h2>Text</h2>
@@ -336,9 +389,10 @@ textarea { min-height: 34px; resize: vertical; font-family: ui-monospace, Consol
 <option value="700">Bold</option>
 </select></div>
 </div>
+<div class="row3">
 <div class="field"><label>Size <input class="value-input" id="v-tsize" aria-label="Text size value"></label>
 <input type="range" id="tsize" min="12" max="140" step="1"></div>
-<div class="row2"><div class="field"><label>Position X <input class="value-input" id="v-tx" aria-label="Text position X value"></label>
+<div class="field"><label>Position X <input class="value-input" id="v-tx" aria-label="Text position X value"></label>
 <input type="range" id="tx" min="0" max="100" step="0.5"></div>
 <div class="field"><label>Position Y <input class="value-input" id="v-ty" aria-label="Text position Y value"></label>
 <input type="range" id="ty" min="0" max="100" step="0.5"></div>
@@ -346,44 +400,37 @@ textarea { min-height: 34px; resize: vertical; font-family: ui-monospace, Consol
 <input type="range" id="tw" min="0" max="1024" step="4"></div>
 <div class="field"><label>Height (0 = auto) <input class="value-input" id="v-th" aria-label="Text height value"></label>
 <input type="range" id="th" min="0" max="600" step="4"></div>
-</div><div class="row2">
+</div><div class="row3">
 <div class="field"><label>Padding X <input class="value-input" id="v-tpadx" aria-label="Horizontal padding value"></label><input type="range" id="tpadx" min="0" max="80" step="1"></div>
 <div class="field"><label>Padding Y <input class="value-input" id="v-tpady" aria-label="Vertical padding value"></label><input type="range" id="tpady" min="0" max="80" step="1"></div>
+<div class="field check-field"><label><input type="checkbox" id="trad"> Corner radius</label></div>
 </div>
-<div class="field check-field"><label><input type="checkbox" id="trad"> Rounded corners</label></div>
-
-<!-- </section>
-<section>
-<h2>Text colors</h2> -->
-<div class="row2">
+<div class="row-colors">
 <div class="field"><label data-custom-for="tcolor">Text color</label>
 <select id="tcolor"></select></div>
 <div class="field"><label data-custom-for="tbg">BG color</label>
 <select id="tbg"></select></div>
-</div>
-<div class="row2">
 <div class="field"><label data-custom-for="tbgo">BG opacity</label>
 <select id="tbgo"></select></div>
-<div class="field check-field"><label><input type="checkbox" id="tblend"> Multiply</label></div>
+<div class="field check-field"><label><input type="checkbox" id="tblend" style="margin-right: 0px; margin-left: 0px"> Multiply</label></div>
 </div>
 </section>
 <section>
 <h2>Link</h2>
-<div class="link-row"><div class="field"><label>URL</label>
-<input type="text" id="lurl" placeholder="https://…" spellcheck="false"></div>
+<div class="row-2-1"><div class="field"><label>URL</label>
+<input type="text" id="lurl" placeholder="https://..." spellcheck="false"></div>
 <div class="field check-field"><label><input type="checkbox" id="ltarget"> New tab</label></div></div>
 </section>
 <section>
 <h2>Banner</h2>
-<div class="row2">
+<div class="row3">
 <div class="field"><label data-custom-for="bg">Background color</label><select id="bg"></select></div>
 <div class="field"><label data-custom-for="rc">Ring</label><select id="rc"></select></div>
-</div><div class="row2">
-<div class="field"><label>Background image</label><input type="text" id="bgurl" placeholder="https://…" spellcheck="false"></div>
-<div class="field"><label data-custom-for="bgopacity">Overlay opacity</label><select id="bgopacity"></select></div>
+<div class="field check-field"><label><input type="checkbox" id="bgrounded"> Corner radius</label></div>
 </div>
-<div class="row2">
-<div class="field check-field"><label><input type="checkbox" id="bgrounded"> Rounded corners</label></div>
+<div class="row3">
+<div class="field"><label>Background image</label><input type="text" id="bgurl" placeholder="https://..." spellcheck="false"></div>
+<div class="field"><label data-custom-for="bgopacity">Overlay opacity</label><select id="bgopacity"></select></div>
 <div class="field check-field"><label><input type="checkbox" id="bgblend"> Multiply</label></div>
 </div>
 </section>
@@ -406,32 +453,3 @@ textarea { min-height: 34px; resize: vertical; font-family: ui-monospace, Consol
 </div>
 </div>
 
-<hr>
-<div style="width: 50%; padding 20px">
-<div class="halo-banner-link">
-<div class="halo-banner" style="
- --ab-h: 680;
- --banner-bg: #0079c1;  --banner-image: none;
- --banner-opacity: 100%;  --banner-blend: normal;
- --banner-radius: 0.977cqw;
- --scale: 0.96;  --x: 35;  --y: 50;
- --ring-weight: 9;  --ring-color: #FFFFFF;
- --photo-zoom: 1;  --photo-x: 50%;  --photo-y: 50%;
- --hover-scale: 1.05;
- --text-font: "Dax Pro";  --text-weight: 400;  --text-size: 50;
- --text-x: 40;  --text-y: 80;
- --text-w: 68.848cqw;
- --text-h: 8.301cqw;
- --text-pad-x: 2.930cqw;  --text-pad-y: 2.441cqw;
- --text-radius: 0.977cqw;
- --text-color: #FFFFFF;  --text-blend: normal;
- --text-bg: color-mix(in srgb, #005789 100%, transparent);
- --text-bg-hover: color-mix(in srgb, color-mix(in srgb, #005789 80%, white) 100%, transparent);">
-<figure class="halo">
-<div class="halo__clip"><img class="halo__img" src="https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b" alt="City skyline"></div>
-</figure>
-<div class="halo__text halo__text-bg" aria-hidden="true" inert>Meet the <span class="b">Insights</span> team</div>
-<div class="halo__text">Meet the <span class="b">Insights</span> team</div>
-</div>
-</div>
-</div>
