@@ -1,0 +1,130 @@
+/* ============================================================================
+   HALO OVERRIDES
+   The short list of things dcs-workbench.css does not cover, plus the few
+   places Halo's own decisions win over the kit's defaults. Tokens only — no
+   hex literal appears here.
+
+   Nothing in this file paints a banner. Banner styles live in the style block
+   with id halo-banner-css, which is what gets bundled into every generated
+   snippet; this file is tool chrome and is never exported. Do not write a
+   literal style tag in these comments - this file is inlined into the HTML,
+   and a closing one would truncate the block.
+   ========================================================================= */
+
+/* --- shell -------------------------------------------------------------- */
+
+/* Halo fills the viewport and scrolls its two columns internally, the way it
+   did before the re-skin. The L2 shell deliberately leaves height to the host,
+   so the tool has to state it. */
+.dcs-tool { height: 100vh; }
+.dcs-tool-body { flex: 1 1 auto; }
+
+/* The control column stays at 400px rather than the kit's 360px cap: the
+   colour row further down was measured to fit 400, and the kit's wider select
+   arrow already spends part of that budget. */
+.dcs-tool-body.has-canvas { grid-template-columns: 400px 1fr; }
+@media (max-width: 720px) { .dcs-tool-body.has-canvas { grid-template-columns: 1fr; } }
+
+/* Actions sit beside the title instead of flushed right. Halo has nothing
+   right-weighted to balance them against. */
+.dcs-tool-head .dcs-tool-actions { margin-left: 0; }
+
+/* The compact-tool mark: four 6px squares on a 2px grid, no tile, no rounding.
+   Opacity runs clockwise from top-left — and a 2-column grid lays children out
+   in row order, so bottom-left is the fourth step, not the third. */
+.dcs-mark {
+ display: grid; flex: none;
+ grid-template-columns: repeat(2, 6px); grid-auto-rows: 6px; gap: 2px;
+}
+.dcs-mark i { background: var(--accent); }
+.dcs-mark i:nth-child(2) { opacity: .62; }   /* top-right */
+.dcs-mark i:nth-child(3) { opacity: .2; }    /* bottom-left */
+.dcs-mark i:nth-child(4) { opacity: .38; }   /* bottom-right */
+
+/* --- controls ----------------------------------------------------------- */
+
+/* The value readout is an <input>, not a span: click it, type a number, commit
+   on Enter or blur. .dcs-value supplies the type; this strips input chrome so
+   it reads as a readout until you touch it. */
+.halo-value-input {
+ width: 58px; padding: 0;
+ border: 0; border-bottom: 1px solid transparent;
+ background: transparent; text-align: right;
+}
+.halo-value-input:focus { outline: 0; border-bottom-color: var(--accent); }
+
+/* Clicking a label swaps its dropdown for a free-text field, or drops focus
+   into the value readout. The label has to look editable for that to be
+   discoverable at all. */
+.dcs-label[data-custom-for],
+.dcs-label:has(.halo-value-input) {
+ cursor: text; border-radius: var(--radius-s);
+ transition: background var(--dur-tint), color var(--dur-tint);
+}
+.dcs-label[data-custom-for]:hover,
+.dcs-label[data-custom-for]:focus-within,
+.dcs-label:has(.halo-value-input):hover,
+.dcs-label:has(.halo-value-input):focus-within { background: var(--bg-3); color: var(--fg); }
+
+/* .dcs-slider sets width:100% but never clears the UA's default 2px margin on
+   a range input, so every slider hangs 2px past its field and every row 2px
+   past the panel. Harmless in a wide dialog; Halo runs fifteen of them in
+   three-across columns, so it shows. Reported upstream - drop this when the
+   kit fixes it. */
+.dcs-slider { margin: 0; }
+
+/* Two mono lines. The kit's 64px floor is sized for a dialog; this panel runs
+   five groups down one column. */
+.halo-textarea { min-height: 48px; }
+
+/* Link row: the URL earns twice the width of the checkbox beside it. */
+.halo-row-2-1 { grid-template-columns: 2fr 1fr; }
+
+/* The kit reserves a 26px right gutter on every select, of which only the last
+   10px is the arrow glyph. Halo runs three and four controls across one 400px
+   column and cannot spend 16px of that on dead space: at 26px the colour
+   dropdowns clip "Green #646c76" by ~5px. 18px still clears the arrow. The
+   glyph itself is untouched — what goes is the gap in front of it. */
+.dcs-select { padding-right: 18px; }
+
+/* Colour row, the one place the column grid is broken. The two swatch
+   dropdowns have to show a full "Green #646c76" (109px); the opacity dropdown
+   never holds more than "100%" (59px), so it pays for them. Measured against
+   the rendered text — re-measure if the option strings change. */
+.halo-row-colors {
+ grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 59px max-content;
+ gap: 10px 5px;
+}
+
+/* A checkbox sharing a row with a taller control lines up with that control,
+   not with the label above it. -lift is for rows of 28px inputs and selects;
+   plain is for rows of 16px sliders, which already land level. */
+.halo-check-field { justify-content: flex-end; }
+.halo-check-field-lift { padding-bottom: 6px; }
+
+/* --- canvas ------------------------------------------------------------- */
+
+/* The banner hugs the top-right of the stage so its left edge stays against
+   the rail. That is the whole point of the rail: drag the preview narrow and
+   line it up against a real page column. */
+.dcs-canvas-stage { place-items: start stretch; }
+.halo-stage-row {
+ display: flex; align-items: stretch; justify-content: flex-end;
+ gap: 6px; min-width: 0;
+}
+.halo-stage-inner {
+ position: relative; flex: 0 1 auto;
+ width: min(100%, 900px); min-width: 160px; max-width: 100%;
+ box-shadow: var(--shadow-pop);
+}
+
+/* --- generated code ----------------------------------------------------- */
+
+.halo-code-view { padding: 12px 14px; }
+.halo-code {
+ margin: 0; padding: 10px;
+ border: 1px solid var(--border); border-radius: var(--radius-m);
+ background: var(--bg-editor); color: var(--fg-row);
+ font: 11.5px/1.6 var(--mono);
+ white-space: pre-wrap; overflow-wrap: anywhere;
+}
