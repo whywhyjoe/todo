@@ -248,12 +248,20 @@ function bindInput(id, key, cast = Number, evt = 'input') {
 function bindSlider(id, key, valueId) {
  const slider = $(id);
  const value = $(valueId);
+ /* .dcs-slider paints its filled portion from --fill rather than accent-color,
+   so the track has to be told where the thumb is. Cosmetic only. */
+ const paintFill = () => {
+	 const min = Number(slider.min), max = Number(slider.max);
+	 slider.style.setProperty('--fill', ((slider.value - min) / (max - min) * 100) + '%');
+ };
  slider.value = state[key];
- slider.addEventListener('input', () => { state[key] = Number(slider.value); render(); });
+ paintFill();
+ slider.addEventListener('input', () => { state[key] = Number(slider.value); paintFill(); render(); });
  const commit = () => {
 	 if (value.value.trim() === '' || value.value === 'auto') return render();
 	 state[key] = Number(value.value);
 	 slider.value = state[key];
+	 paintFill();
 	 render();
  };
  value.addEventListener('keydown', event => {
@@ -267,7 +275,7 @@ function bindSelect(id, key) {
  select.addEventListener('change', () => { state[key] = select.value; render(); });
  const label = root.querySelector(`label[data-custom-for="${id}"]`);
  const custom = document.createElement('input');
- custom.className = 'custom-value';
+ custom.className = 'dcs-input';
  custom.hidden = true;
  custom.setAttribute('aria-label', `${label.textContent} custom value`);
  select.after(custom);
@@ -322,27 +330,28 @@ $('toggle-code').addEventListener('click', event => {
  event.currentTarget.querySelector('span').textContent = showing ? 'Show code' : 'Hide code';
  event.currentTarget.setAttribute('aria-expanded', String(!showing));
 });
-const stageInner = root.querySelector('.stage-inner');
+const stageInner = root.querySelector('.halo-stage-inner');
 const stageResizer = $('stage-resizer');
-/* clientWidth includes the stage padding that holds the resizer, so measure
-  the content box instead or the preview can be dragged past its own column */
+/* The rail and the gap beside it are outside the preview's own width, so the
+  row measures wider than the preview is allowed to get. Subtract them or the
+  preview can be dragged past the column it lives in. */
 function maxStageWidth() {
- const stage = stageInner.parentElement;
- const styles = getComputedStyle(stage);
- return stage.clientWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight);
+ const row = stageInner.parentElement;
+ const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
+ return row.clientWidth - stageResizer.getBoundingClientRect().width - gap;
 }
 stageResizer.addEventListener('pointerdown', event => {
  const startX = event.clientX;
  const startWidth = stageInner.getBoundingClientRect().width;
  const maxWidth = maxStageWidth();
  stageResizer.setPointerCapture(event.pointerId);
- stageResizer.classList.add('is-resizing');
+ stageResizer.classList.add('is-dragging');
  const resize = moveEvent => {
   const width = Math.min(maxWidth, Math.max(160, startWidth - (moveEvent.clientX - startX)));
   stageInner.style.width = width + 'px';
  };
  const stop = () => {
-  stageResizer.classList.remove('is-resizing');
+  stageResizer.classList.remove('is-dragging');
   stageResizer.removeEventListener('pointermove', resize);
   stageResizer.removeEventListener('pointerup', stop);
   stageResizer.removeEventListener('pointercancel', stop);
