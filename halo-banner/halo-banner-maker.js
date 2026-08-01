@@ -117,6 +117,16 @@ function hoverBackground(color) {
  const hover = rule.hover.toLowerCase() === String(state.bg).toLowerCase() ? rule.backup : rule.hover;
  return `color-mix(in srgb, ${hover} ${state.textBgOpacity}, transparent)`;
 }
+/* An empty text box means no text plate at all - without this an empty block
+  still paints its background, padding and corner radius over the banner.
+  Markup that draws something counts as content even with no characters in it. */
+function hasTextPlate() {
+ const html = String(state.text);
+ if (!html.trim()) return false;
+ const probe = document.createElement('div');
+ probe.innerHTML = html;
+ return probe.textContent.trim() !== '' || !!probe.querySelector('img, svg, picture, video, canvas');
+}
 function escapeAttribute(value) {
  return String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -168,9 +178,13 @@ function render() {
  img.alt = state.photoAlt;
  s.setProperty('--hover-scale', state.hoverScale);
  // text
+ const showText = hasTextPlate();
  textEl.innerHTML = state.text;
  textBgEl.innerHTML = state.text;
  textBgEl.querySelectorAll('[id]').forEach(element => element.removeAttribute('id'));
+ /* inline, because .halo__text sets `display: block` and would beat [hidden] */
+ textEl.style.display = showText ? '' : 'none';
+ textBgEl.style.display = showText ? '' : 'none';
  s.setProperty('--text-font', state.font);
  s.setProperty('--text-weight', state.weight);
  s.setProperty('--text-size', state.size);
@@ -205,6 +219,23 @@ function render() {
 function emit() {
  const hasLink = state.href.trim() !== '';
  const wrapperTag = hasLink ? 'a' : 'div';
+ const showText = hasTextPlate();
+ const textPlate = showText
+  ? `\n<div class="halo__text halo__text-bg" aria-hidden="true" inert>${state.text}</div>`
+   + `\n<div class="halo__text">${state.text}</div>`
+  : '';
+ /* no plate, no variables driving one */
+ const textVars = showText ?
+`
+ --text-font: ${state.font};  --text-weight: ${state.weight};  --text-size: ${state.size};
+ --text-x: ${state.textX};  --text-y: ${state.textY};
+ --text-w: ${state.textW > 0 ? (state.textW/10.24).toFixed(3)+'cqw' : 'auto'};
+ --text-h: ${state.textH > 0 ? (state.textH/10.24).toFixed(3)+'cqw' : 'auto'};
+ --text-pad-x: ${(state.padX/10.24).toFixed(3)}cqw;  --text-pad-y: ${(state.padY/10.24).toFixed(3)}cqw;
+ --text-radius: ${((state.rounded ? state.radius : 0)/10.24).toFixed(3)}cqw;
+ --text-color: ${state.textColor};  --text-blend: ${state.blend};
+ --text-bg: ${textBackground(state.textBg)};
+ --text-bg-hover: ${hoverBackground(state.textBg)};` : '';
  out.textContent =
 `<!-- HALO BANNER '${commentSafe(state.photoAlt)}' ${SCOPE_ID} -->
 <div class="${SCOPE_CLASS}">
@@ -220,21 +251,10 @@ ${scopedComponentCss(SCOPE_CLASS)}
  --scale: ${state.scale};  --x: ${state.x};  --y: ${state.y};
  --ring-weight: ${state.ringWeight};  --ring-color: ${state.ringColor};
  --photo-zoom: ${state.photoZoom};  --photo-x: ${state.photoX}%;  --photo-y: ${state.photoY}%;
- --hover-scale: ${state.hoverScale};
- --text-font: ${state.font};  --text-weight: ${state.weight};  --text-size: ${state.size};
- --text-x: ${state.textX};  --text-y: ${state.textY};
- --text-w: ${state.textW > 0 ? (state.textW/10.24).toFixed(3)+'cqw' : 'auto'};
- --text-h: ${state.textH > 0 ? (state.textH/10.24).toFixed(3)+'cqw' : 'auto'};
- --text-pad-x: ${(state.padX/10.24).toFixed(3)}cqw;  --text-pad-y: ${(state.padY/10.24).toFixed(3)}cqw;
- --text-radius: ${((state.rounded ? state.radius : 0)/10.24).toFixed(3)}cqw;
- --text-color: ${state.textColor};  --text-blend: ${state.blend};
- --text-bg: ${textBackground(state.textBg)};
- --text-bg-hover: ${hoverBackground(state.textBg)};">
+ --hover-scale: ${state.hoverScale};${textVars}">
 <figure class="halo">
 <div class="halo__clip"><img class="halo__img" src="${escapeAttribute(state.photoImage)}" alt="${escapeAttribute(state.photoAlt)}"></div>
-</figure>
-<div class="halo__text halo__text-bg" aria-hidden="true" inert>${state.text}</div>
-<div class="halo__text">${state.text}</div>
+</figure>${textPlate}
 </div>
 </${wrapperTag}>
 </div>
@@ -359,9 +379,11 @@ async function buildStandaloneSvg() {
  const zoomX = boxX + clip * anchorX;
  const zoomY = boxY + clip * anchorY;
  /* --- text. Measured, not computed: `auto` width and height only exist
-    once the browser has laid the block out. */
+    once the browser has laid the block out. An empty text box draws no
+    plate here either - the preview has already hidden it. */
+ const showText = hasTextPlate();
  const textBox = textEl.getBoundingClientRect();
- const runs = textRuns(unit, origin);
+ const runs = showText ? textRuns(unit, origin) : [];
  const [photoHref, bannerHref] = await Promise.all([
   toDataUri(state.photoImage.trim() || placeholderImage, missed),
   toDataUri(state.bgImage, missed)
@@ -382,7 +404,7 @@ async function buildStandaloneSvg() {
  if (stroke > 0) parts.push(
   `<circle cx="${round(cx)}" cy="${round(cy)}" r="${round((size - stroke) / 2)}"`
   + ` fill="none" stroke="${escapeAttribute(state.ringColor)}" stroke-width="${round(stroke)}"/>`);
- if (state.textBg !== 'transparent') parts.push(
+ if (showText && state.textBg !== 'transparent') parts.push(
   `<rect x="${round((textBox.left - origin.left) * unit)}" y="${round((textBox.top - origin.top) * unit)}"`
   + ` width="${round(textBox.width * unit)}" height="${round(textBox.height * unit)}"`
   + ` rx="${round(state.rounded ? state.radius : 0)}"`
