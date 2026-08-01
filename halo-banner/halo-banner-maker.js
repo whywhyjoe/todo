@@ -240,6 +240,173 @@ ${scopedComponentCss(SCOPE_CLASS)}
 </div>
 <!-- END HALO BANNER -->`;
 }
+/* ############################################################
+  STANDALONE SVG EXPORT
+  A second output format: one .svg file that carries its own
+  geometry, colours and (where CORS allows) its own pixels, with
+  no stylesheet and no external request.
+
+  It works because the banner is already authored in artboard
+  units - 1024 wide by --ab-h tall - and every CSS length in the
+  component is either a percentage of that box or a cqw, which is
+  1/100th of it. So `n cqw` is `n * 10.24` user units and the
+  whole layout transfers without a scale factor.
+
+  Three things do NOT transfer, by nature of the format:
+   - hover (scale-up, text-bg swap) and the link wrapper. A file
+     opened as an image has no interaction model.
+   - Dax Pro. The glyphs stay live text with a font-family stack,
+     so a machine without the font falls back to Segoe UI and the
+     line breaks bake in below will no longer match its metrics.
+   - images the browser is not allowed to read cross-origin. Those
+     stay as <image href="https://..."> and the file is no longer
+     self-contained; the caller is told which ones.
+  ############################################################ */
+function xmlText(value) {
+ return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+async function toDataUri(url, missed) {
+ const source = String(url).trim();
+ if (!source || source.startsWith('data:')) return source;
+ try {
+  const response = await fetch(source, { mode: 'cors' });
+  if (!response.ok) throw new Error(response.status);
+  const blob = await response.blob();
+  return await new Promise((resolve, reject) => {
+   const reader = new FileReader();
+   reader.onload = () => resolve(reader.result);
+   reader.onerror = () => reject(reader.error);
+   reader.readAsDataURL(blob);
+  });
+ }
+ catch (error) {
+  console.warn(`[halo] could not embed ${source} - left as a link`, error);
+  missed.push(source);
+  return source;
+ }
+}
+/* SVG does not wrap text, so the wrap points have to be read off the DOM that
+  already wrapped it. Walks the live preview character by character and cuts a
+  new run wherever the baseline moves - which is every line break, and every
+  <span> that changes the font. Each run then places itself absolutely, so
+  runs sharing a line stay adjacent without any inline layout. */
+function textRuns(unit, origin) {
+ const metrics = document.createElement('canvas').getContext('2d');
+ const walker = document.createTreeWalker(textEl, NodeFilter.SHOW_TEXT);
+ const runs = [];
+ for (let node; (node = walker.nextNode());) {
+  const text = node.nodeValue;
+  if (!text.trim()) continue;
+  const style = getComputedStyle(node.parentElement);
+  const fontSize = parseFloat(style.fontSize);
+  metrics.font = `${style.fontStyle} ${style.fontWeight} ${fontSize}px ${style.fontFamily}`;
+  const box = metrics.measureText('Hg');
+  const ascent = box.fontBoundingBoxAscent || box.actualBoundingBoxAscent || fontSize * 0.8;
+  const range = document.createRange();
+  let run = null;
+  for (let i = 0; i < text.length; i++) {
+   const character = text[i];
+   range.setStart(node, i);
+   range.setEnd(node, i + 1);
+   const rect = range.getBoundingClientRect();
+   const blank = !rect.width && !rect.height;   /* collapsed at a wrap point */
+   if (run && (blank || Math.abs(rect.top - run.top) < 0.5)) { run.text += character; continue; }
+   /* Whitespace at the head of a line was collapsed to nothing by the browser.
+      SVG collapses nothing, so a run that opened on one would indent its line
+      by a space the preview never drew. Skip it and let the next glyph set
+      both the run's text and its x. */
+   if (/\s/.test(character)) { run = null; continue; }
+   run = { top: rect.top, left: rect.left, text: character, fontSize, ascent, style };
+   runs.push(run);
+  }
+ }
+ return runs.map(run => ({
+  x: (run.left - origin.left) * unit,
+  y: (run.top - origin.top + run.ascent) * unit,
+  size: run.fontSize * unit,
+  weight: run.style.fontWeight,
+  family: run.style.fontFamily,
+  fill: run.style.color,
+  text: run.text.replace(/\s+$/, '')
+ }));
+}
+async function buildStandaloneSvg() {
+ const missed = [];
+ const round = value => Number(value.toFixed(3));
+ const height = state.abHeight;
+ const origin = scene.getBoundingClientRect();
+ const unit = 1024 / origin.width;           /* preview px -> artboard units */
+ /* --- halo. Same constants the component CSS carries: the outer edge is
+    118.1759cqw = 1210.1213 units at scale 1, the clip is .95373 of it, and
+    the border scales with the ring so `stroke` is just weight x scale. */
+ const size = 1210.1213 * state.scale;
+ const cx = 10.24 * state.x;
+ const cy = height * state.y / 100;
+ const stroke = state.ringWeight * state.scale;
+ const clip = size * 0.95373;
+ /* object-fit: cover, by hand. Scale the photo until it covers the circle's
+    bounding square, park it per object-position, then apply the zoom about
+    that same point the way transform-origin does. */
+ const naturalW = img.naturalWidth || 1;
+ const naturalH = img.naturalHeight || 1;
+ const cover = Math.max(clip / naturalW, clip / naturalH);
+ const photoW = naturalW * cover;
+ const photoH = naturalH * cover;
+ const anchorX = state.photoX / 100;
+ const anchorY = state.photoY / 100;
+ const boxX = cx - clip / 2;
+ const boxY = cy - clip / 2;
+ const zoomX = boxX + clip * anchorX;
+ const zoomY = boxY + clip * anchorY;
+ /* --- text. Measured, not computed: `auto` width and height only exist
+    once the browser has laid the block out. */
+ const textBox = textEl.getBoundingClientRect();
+ const runs = textRuns(unit, origin);
+ const [photoHref, bannerHref] = await Promise.all([
+  toDataUri(state.photoImage.trim() || placeholderImage, missed),
+  toDataUri(state.bgImage, missed)
+ ]);
+ const parts = [];
+ if (bannerHref) parts.push(
+  `<image x="0" y="0" width="1024" height="${round(height)}" preserveAspectRatio="xMidYMid slice" href="${escapeAttribute(bannerHref)}"/>`);
+ parts.push(
+  `<rect x="0" y="0" width="1024" height="${round(height)}" fill="${escapeAttribute(state.bg)}"`
+  + ` fill-opacity="${parseFloat(state.bgOpacity) / 100}"`
+  + (state.bgBlend === 'multiply' ? ' style="mix-blend-mode:multiply"' : '') + '/>');
+ parts.push(
+  `<g clip-path="url(#halo-photo-${SCOPE_ID})">`
+  + `<g transform="translate(${round(zoomX)} ${round(zoomY)}) scale(${state.photoZoom}) translate(${round(-zoomX)} ${round(-zoomY)})">`
+  + `<image x="${round(boxX + (clip - photoW) * anchorX)}" y="${round(boxY + (clip - photoH) * anchorY)}"`
+  + ` width="${round(photoW)}" height="${round(photoH)}" preserveAspectRatio="none" href="${escapeAttribute(photoHref)}"/>`
+  + '</g></g>');
+ if (stroke > 0) parts.push(
+  `<circle cx="${round(cx)}" cy="${round(cy)}" r="${round((size - stroke) / 2)}"`
+  + ` fill="none" stroke="${escapeAttribute(state.ringColor)}" stroke-width="${round(stroke)}"/>`);
+ if (state.textBg !== 'transparent') parts.push(
+  `<rect x="${round((textBox.left - origin.left) * unit)}" y="${round((textBox.top - origin.top) * unit)}"`
+  + ` width="${round(textBox.width * unit)}" height="${round(textBox.height * unit)}"`
+  + ` rx="${round(state.rounded ? state.radius : 0)}"`
+  + ` fill="${escapeAttribute(state.textBg)}" fill-opacity="${parseFloat(state.textBgOpacity) / 100}"`
+  + (state.blend === 'multiply' ? ' style="mix-blend-mode:multiply"' : '') + '/>');
+ runs.forEach(run => parts.push(
+  `<text x="${round(run.x)}" y="${round(run.y)}" xml:space="preserve"`
+  + ` font-family="${escapeAttribute(run.family)}" font-size="${round(run.size)}" font-weight="${escapeAttribute(run.weight)}"`
+  + ` fill="${escapeAttribute(run.fill)}">${xmlText(run.text)}</text>`));
+ const radius = state.bgRounded ? state.bgRadius : 0;
+ const svg =
+`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 ${round(height)}" width="1024" height="${round(height)}" role="img">
+<title>${xmlText(state.photoAlt || 'Halo banner')}</title>
+<defs>
+<clipPath id="halo-banner-${SCOPE_ID}"><rect x="0" y="0" width="1024" height="${round(height)}" rx="${round(radius)}"/></clipPath>
+<clipPath id="halo-photo-${SCOPE_ID}"><circle cx="${round(cx)}" cy="${round(cy)}" r="${round(clip / 2)}"/></clipPath>
+</defs>
+<g clip-path="url(#halo-banner-${SCOPE_ID})" style="isolation:isolate">
+${parts.join('\n')}
+</g>
+</svg>
+`;
+ return { svg, missed };
+}
 function bindInput(id, key, cast = Number, evt = 'input') {
  const el = $(id);
  el.addEventListener(evt, e => { state[key] = cast(e.target.value); render(); });
@@ -322,6 +489,29 @@ $('copy').addEventListener('click', async event => {
  await navigator.clipboard.writeText(out.textContent);
  label.textContent = 'Copied';
  setTimeout(() => { label.textContent = 'Copy'; }, 1200);
+});
+$('svg').addEventListener('click', async event => {
+ const button = event.currentTarget;
+ const label = button.querySelector('span');
+ const rest = label.textContent;
+ button.disabled = true;
+ label.textContent = 'Building';
+ try {
+  const { svg, missed } = await buildStandaloneSvg();
+  const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `halo-banner-${SCOPE_ID}.svg`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+  label.textContent = missed.length ? `${missed.length} image linked` : 'Saved';
+ }
+ catch (error) {
+  console.error('[halo] SVG export failed', error);
+  label.textContent = 'Failed';
+ }
+ button.disabled = false;
+ setTimeout(() => { label.textContent = rest; }, 2000);
 });
 $('toggle-code').addEventListener('click', event => {
  const showing = !$('code-view').hidden;
