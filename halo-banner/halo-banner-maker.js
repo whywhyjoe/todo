@@ -1,0 +1,368 @@
+/**
+ * Utility: waitForElement
+ * Waits for a standard (non-jQuery) selector to match one or more elements in the DOM.
+ * Polls at a specified interval until the element(s) appear or a timeout is reached.
+ *
+ * @param {string} selector - Selector string to watch for.
+ * @param {function} callback - Function to execute when the element(s) are found. Receives the jQuery object as an argument.
+ * @param {number} [timeout=10000] - Maximum time to wait in milliseconds before giving up.
+ * @param {number} [interval=100] - Polling interval in milliseconds.
+ */
+function waitForElement(selector, callback, timeout = 10000, interval = 100) {
+	console.log(`[waitForElement] Waiting for selector: ${selector}`);
+	const start = Date.now();
+	const check = () => {
+		const element = document.querySelector(selector);
+		if (element) {
+			console.log(`[waitForElement] Found element: ${selector}`);
+			callback(element);
+		}
+		else if (Date.now() - start < timeout) {
+			setTimeout(check, interval);
+		}
+		else {
+			console.warn(`[waitForElement] Timeout: Element "${selector}" not found.`);
+		}
+	};
+	check();
+}
+
+function initGenerator(root) {
+/* ############################################################
+  DEFAULTS — edit these, reload, experiment. Everything the
+  panel controls starts from here.
+  ############################################################ */
+const BRAND = {
+ Blue:  '#0079c1',
+ Navy:  '#005789',
+ Green:  '#646c76',
+ White: '#FFFFFF',
+};
+/* Hover color for the text block background, keyed by the resting
+  text bg color (keys lowercase). On hover the bg swaps to `hover`,
+  unless the banner bg is already that color - then `backup` is used.
+  Custom text bg colors with no entry here get no hover change. */
+const HOVER_COLORS = {
+ [BRAND.Navy.toLowerCase()]:  { hover: BRAND.Blue, backup: BRAND.Green },
+ [BRAND.Blue.toLowerCase()]:  { hover: BRAND.Navy, backup: BRAND.Green },
+ [BRAND.Green.toLowerCase()]: { hover: BRAND.Blue, backup: BRAND.Navy },
+ [BRAND.White.toLowerCase()]: { hover: BRAND.Blue, backup: BRAND.Navy },
+};
+const DEFAULTS = {
+ scale: .96,
+ x: 35,
+ y: 50,
+ ringWeight: 9,
+ abHeight: 680,
+ ringColor: '#FFFFFF',
+ bg: '#0079c1',
+ bgRounded: true,
+ bgRadius: 10,
+ bgImage: '',
+ bgOpacity: '100%',
+ bgBlend: 'normal',
+ photoZoom: 1, photoX: 50, photoY: 50,
+ photoImage: 'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b',
+ photoAlt: 'City skyline',
+ text: 'Meet the <span class="b">Insights</span> team',
+ font: '"Dax Pro"',
+ weight: '400',
+ size: 50,
+ textX: 40,
+ textY: 80,
+ textW: 705,
+ textH: 85,
+ padX: 30,
+ padY: 25,
+ rounded: true,
+ radius: 10,
+ textColor: '#FFFFFF',
+ textBg: '#005789',
+ textBgOpacity: '100%',
+ blend: 'normal',
+ href: '',
+ target: '_self',
+ hoverScale: 1.05
+};
+/* ############################################################ */
+const $ = id => root.querySelector(`#${id}`);
+const scene = $('scene'), link = $('link'), img = $('img'), textEl = $('text'), textBgEl = $('text-bg'), out = $('out');
+const placeholderImage = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+ `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600">
+<rect width="600" height="600" fill="#d7dbe0"/>
+<circle cx="300" cy="235" r="95" fill="#9aa4b0"/>
+<path d="M110 600c0-105 85-190 190-190s190 85 190 190z" fill="#9aa4b0"/>
+</svg>`);
+const state = { ...DEFAULTS };
+function fillColorSelect(sel, includeNone) {
+ if (includeNone) sel.add(new Option('None', 'transparent'));
+ Object.entries(BRAND).forEach(([name, value]) => sel.add(new Option(`${name} ${value}`, value)));
+}
+fillColorSelect($('tcolor'), false);
+fillColorSelect($('tbg'), true);
+fillColorSelect($('bg'), false);
+fillColorSelect($('rc'), false);
+for (let opacity = 0; opacity <= 100; opacity += 10) {
+ const value = opacity + '%';
+ $('tbgo').add(new Option(value, value));
+ $('bgopacity').add(new Option(value, value));
+}
+function textBackground(color) {
+ return color === 'transparent' ? 'transparent' : `color-mix(in srgb, ${color} ${state.textBgOpacity}, transparent)`;
+}
+function hoverBackground(color) {
+ if (color === 'transparent') return 'transparent';
+ const rule = HOVER_COLORS[color.toLowerCase()];
+ if (!rule) return textBackground(color);
+ const hover = rule.hover.toLowerCase() === String(state.bg).toLowerCase() ? rule.backup : rule.hover;
+ return `color-mix(in srgb, ${hover} ${state.textBgOpacity}, transparent)`;
+}
+function escapeAttribute(value) {
+ return String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+/* "--" would close the HTML comment early */
+function commentSafe(value) {
+ return String(value).replace(/[<>]/g, '').replace(/-{2,}/g, '-').trim();
+}
+/* One scope per generator load. Every block copied in a session shares it,
+  which is safe because they also share identical component CSS - what it
+  isolates is this banner from OTHER page CSS and from blocks generated by a
+  different version of this tool. A class, not an id: pasting the same block
+  twice must stay valid HTML. */
+const SCOPE_ID = String(Math.floor(100000 + Math.random() * 900000));
+const SCOPE_CLASS = `halo-${SCOPE_ID}`;
+/* Rewrites the component stylesheet so every selector only matches inside
+  this block's wrapper. Going through the CSSOM (rather than string surgery)
+  keeps @media intact and drops all comments for free. */
+function scopedComponentCss(scope) {
+ const sheet = document.getElementById('halo-banner-css').sheet;
+ const scoped = selectorText => selectorText.split(',')
+  .map(part => `.${scope} ${part.trim()}`).join(', ');
+ const render = (rule, indent = '') => {
+  if (rule instanceof CSSStyleRule) return `${indent}${scoped(rule.selectorText)} { ${rule.style.cssText} }`;
+  if (rule instanceof CSSMediaRule) {
+   const inner = [...rule.cssRules].map(child => render(child, indent + ' ')).join('\n');
+   return `${indent}@media ${rule.conditionText} {\n${inner}\n${indent}}`;
+  }
+  return `${indent}${rule.cssText}`;   // @font-face and friends stay global
+ };
+ return [...sheet.cssRules].map(rule => render(rule)).join('\n');
+}
+function render() {
+ const s = scene.style;
+ s.setProperty('--scale', state.scale);
+ s.setProperty('--x', state.x);
+ s.setProperty('--y', state.y);
+ s.setProperty('--ring-weight', state.ringWeight);
+ s.setProperty('--ab-h', state.abHeight);
+ s.setProperty('--ring-color', state.ringColor);
+ s.setProperty('--banner-bg', state.bg);
+ s.setProperty('--banner-image', state.bgImage ? `url("${state.bgImage.replace(/"/g, '\\"')}")` : 'none');
+ s.setProperty('--banner-opacity', state.bgOpacity);
+ s.setProperty('--banner-blend', state.bgBlend);
+ s.setProperty('--banner-radius', ((state.bgRounded ? state.bgRadius : 0) / 10.24) + 'cqw');
+ s.setProperty('--photo-zoom', state.photoZoom);
+ s.setProperty('--photo-x', state.photoX + '%');
+ s.setProperty('--photo-y', state.photoY + '%');
+ img.src = state.photoImage.trim() || placeholderImage;
+ img.alt = state.photoAlt;
+ s.setProperty('--hover-scale', state.hoverScale);
+ // text
+ textEl.innerHTML = state.text;
+ textBgEl.innerHTML = state.text;
+ textBgEl.querySelectorAll('[id]').forEach(element => element.removeAttribute('id'));
+ s.setProperty('--text-font', state.font);
+ s.setProperty('--text-weight', state.weight);
+ s.setProperty('--text-size', state.size);
+ s.setProperty('--text-x', state.textX);
+ s.setProperty('--text-y', state.textY);
+ s.setProperty('--text-w', state.textW > 0 ? (state.textW / 10.24) + 'cqw' : 'auto');
+ s.setProperty('--text-h', state.textH > 0 ? (state.textH / 10.24) + 'cqw' : 'auto');
+ s.setProperty('--text-pad-x', (state.padX / 10.24) + 'cqw');
+ s.setProperty('--text-pad-y', (state.padY / 10.24) + 'cqw');
+ s.setProperty('--text-radius', ((state.rounded ? state.radius : 0) / 10.24) + 'cqw');
+ s.setProperty('--text-color', state.textColor);
+ s.setProperty('--text-blend', state.blend);
+ s.setProperty('--text-bg', textBackground(state.textBg));
+ s.setProperty('--text-bg-hover', hoverBackground(state.textBg));
+ const hasLink = state.href.trim() !== '';
+ link.classList.toggle('has-link', hasLink);
+ if (hasLink) link.href = state.href; else link.removeAttribute('href');
+ if (hasLink) link.target = state.target; else link.removeAttribute('target');
+ if (hasLink && state.target === '_blank') link.rel = 'noopener'; else link.removeAttribute('rel');
+ const lbl = (id, value) => {
+	 const element = $(id);
+	 if (element) element.value = value;
+ };
+ lbl('v-scale', state.scale); lbl('v-x', state.x); lbl('v-y', state.y);
+ lbl('v-rw', state.ringWeight); lbl('v-abh', state.abHeight);
+ lbl('v-pz', state.photoZoom); lbl('v-ppx', state.photoX); lbl('v-ppy', state.photoY);
+ lbl('v-tsize', state.size); lbl('v-tx', state.textX); lbl('v-ty', state.textY);
+ lbl('v-tw', state.textW || 'auto'); lbl('v-th', state.textH || 'auto');
+ lbl('v-tpadx', state.padX); lbl('v-tpady', state.padY);
+ emit();
+}
+function emit() {
+ const hasLink = state.href.trim() !== '';
+ const wrapperTag = hasLink ? 'a' : 'div';
+ out.textContent =
+`<!-- HALO BANNER '${commentSafe(state.photoAlt)}' ${SCOPE_ID} -->
+<div class="${SCOPE_CLASS}">
+<style>
+${scopedComponentCss(SCOPE_CLASS)}
+</style>
+<${wrapperTag} class="halo-banner-link${hasLink ? ' has-link' : ''}"${hasLink ? ` href="${state.href}"${state.target === '_blank' ? ' target="_blank" rel="noopener"' : ''}` : ''}>
+<div class="halo-banner" style="
+ --ab-h: ${state.abHeight};
+ --banner-bg: ${state.bg};  --banner-image: ${state.bgImage ? `url(&quot;${state.bgImage}&quot;)` : 'none'};
+ --banner-opacity: ${state.bgOpacity};  --banner-blend: ${state.bgBlend};
+ --banner-radius: ${((state.bgRounded ? state.bgRadius : 0)/10.24).toFixed(3)}cqw;
+ --scale: ${state.scale};  --x: ${state.x};  --y: ${state.y};
+ --ring-weight: ${state.ringWeight};  --ring-color: ${state.ringColor};
+ --photo-zoom: ${state.photoZoom};  --photo-x: ${state.photoX}%;  --photo-y: ${state.photoY}%;
+ --hover-scale: ${state.hoverScale};
+ --text-font: ${state.font};  --text-weight: ${state.weight};  --text-size: ${state.size};
+ --text-x: ${state.textX};  --text-y: ${state.textY};
+ --text-w: ${state.textW > 0 ? (state.textW/10.24).toFixed(3)+'cqw' : 'auto'};
+ --text-h: ${state.textH > 0 ? (state.textH/10.24).toFixed(3)+'cqw' : 'auto'};
+ --text-pad-x: ${(state.padX/10.24).toFixed(3)}cqw;  --text-pad-y: ${(state.padY/10.24).toFixed(3)}cqw;
+ --text-radius: ${((state.rounded ? state.radius : 0)/10.24).toFixed(3)}cqw;
+ --text-color: ${state.textColor};  --text-blend: ${state.blend};
+ --text-bg: ${textBackground(state.textBg)};
+ --text-bg-hover: ${hoverBackground(state.textBg)};">
+<figure class="halo">
+<div class="halo__clip"><img class="halo__img" src="${escapeAttribute(state.photoImage)}" alt="${escapeAttribute(state.photoAlt)}"></div>
+</figure>
+<div class="halo__text halo__text-bg" aria-hidden="true" inert>${state.text}</div>
+<div class="halo__text">${state.text}</div>
+</div>
+</${wrapperTag}>
+</div>
+<!-- END HALO BANNER -->`;
+}
+function bindInput(id, key, cast = Number, evt = 'input') {
+ const el = $(id);
+ el.addEventListener(evt, e => { state[key] = cast(e.target.value); render(); });
+ el.value = state[key];
+}
+function bindSlider(id, key, valueId) {
+ const slider = $(id);
+ const value = $(valueId);
+ slider.value = state[key];
+ slider.addEventListener('input', () => { state[key] = Number(slider.value); render(); });
+ const commit = () => {
+	 if (value.value.trim() === '' || value.value === 'auto') return render();
+	 state[key] = Number(value.value);
+	 slider.value = state[key];
+	 render();
+ };
+ value.addEventListener('keydown', event => {
+	 if (event.key === 'Enter') { commit(); value.blur(); }
+ });
+ value.addEventListener('blur', commit);
+}
+function bindSelect(id, key) {
+ const select = $(id);
+ select.value = state[key];
+ select.addEventListener('change', () => { state[key] = select.value; render(); });
+ const label = root.querySelector(`label[data-custom-for="${id}"]`);
+ const custom = document.createElement('input');
+ custom.className = 'custom-value';
+ custom.hidden = true;
+ custom.setAttribute('aria-label', `${label.textContent} custom value`);
+ select.after(custom);
+ label.addEventListener('click', () => {
+	 const editing = custom.hidden;
+	 custom.hidden = !editing;
+	 select.hidden = editing;
+	 if (editing) { custom.value = state[key]; custom.focus(); custom.select(); }
+ });
+ custom.addEventListener('keydown', event => {
+	 if (event.key === 'Enter') { state[key] = custom.value; render(); custom.blur(); }
+	 if (event.key === 'Escape') { custom.hidden = true; select.hidden = false; }
+ });
+}
+[
+ ['scale','scale','v-scale'], ['x','x','v-x'], ['y','y','v-y'],
+ ['rw','ringWeight','v-rw'], ['abh','abHeight','v-abh'],
+ ['pz','photoZoom','v-pz'], ['ppx','photoX','v-ppx'], ['ppy','photoY','v-ppy'],
+ ['tsize','size','v-tsize'], ['tx','textX','v-tx'], ['ty','textY','v-ty'],
+ ['tw','textW','v-tw'], ['th','textH','v-th'],
+ ['tpadx','padX','v-tpadx'], ['tpady','padY','v-tpady']
+].forEach(args => bindSlider(...args));
+bindInput('ttext','text',String);
+bindInput('lurl','href',String);
+bindInput('bgurl','bgImage',String);
+bindInput('purl','photoImage',String);
+bindInput('palt','photoAlt',String);
+[
+ ['tfont','font'], ['tweight','weight'], ['tcolor','textColor'], ['tbg','textBg'],
+ ['tbgo','textBgOpacity'], ['bg','bg'], ['rc','ringColor'], ['bgopacity','bgOpacity']
+].forEach(args => bindSelect(...args));
+$('tblend').checked = state.blend === 'multiply';
+$('tblend').addEventListener('change', event => { state.blend = event.target.checked ? 'multiply' : 'normal'; render(); });
+$('ltarget').checked = state.target === '_blank';
+$('ltarget').addEventListener('change', event => { state.target = event.target.checked ? '_blank' : '_self'; render(); });
+$('bgblend').checked = state.bgBlend === 'multiply';
+$('bgblend').addEventListener('change', event => { state.bgBlend = event.target.checked ? 'multiply' : 'normal'; render(); });
+$('bgrounded').checked = state.bgRounded;
+$('bgrounded').addEventListener('change', event => { state.bgRounded = event.target.checked; render(); });
+$('trad').checked = state.rounded;
+$('trad').addEventListener('change', event => { state.rounded = event.target.checked; render(); });
+$('copy').addEventListener('click', async event => {
+ const label = event.currentTarget.querySelector('span');
+ await navigator.clipboard.writeText(out.textContent);
+ label.textContent = 'Copied';
+ setTimeout(() => { label.textContent = 'Copy'; }, 1200);
+});
+$('toggle-code').addEventListener('click', event => {
+ const showing = !$('code-view').hidden;
+ $('code-view').hidden = showing;
+ $('panel-controls').hidden = !showing;
+ event.currentTarget.querySelector('span').textContent = showing ? 'Show code' : 'Hide code';
+ event.currentTarget.setAttribute('aria-expanded', String(!showing));
+});
+const stageInner = root.querySelector('.stage-inner');
+const stageResizer = $('stage-resizer');
+/* clientWidth includes the stage padding that holds the resizer, so measure
+  the content box instead or the preview can be dragged past its own column */
+function maxStageWidth() {
+ const stage = stageInner.parentElement;
+ const styles = getComputedStyle(stage);
+ return stage.clientWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight);
+}
+stageResizer.addEventListener('pointerdown', event => {
+ const startX = event.clientX;
+ const startWidth = stageInner.getBoundingClientRect().width;
+ const maxWidth = maxStageWidth();
+ stageResizer.setPointerCapture(event.pointerId);
+ stageResizer.classList.add('is-resizing');
+ const resize = moveEvent => {
+  const width = Math.min(maxWidth, Math.max(160, startWidth - (moveEvent.clientX - startX)));
+  stageInner.style.width = width + 'px';
+ };
+ const stop = () => {
+  stageResizer.classList.remove('is-resizing');
+  stageResizer.removeEventListener('pointermove', resize);
+  stageResizer.removeEventListener('pointerup', stop);
+  stageResizer.removeEventListener('pointercancel', stop);
+ };
+ stageResizer.addEventListener('pointermove', resize);
+ stageResizer.addEventListener('pointerup', stop);
+ stageResizer.addEventListener('pointercancel', stop);
+});
+stageResizer.addEventListener('keydown', event => {
+ if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+ event.preventDefault();
+ const direction = event.key === 'ArrowLeft' ? 1 : -1;
+ const maxWidth = maxStageWidth();
+ const width = Math.min(maxWidth, Math.max(160, stageInner.getBoundingClientRect().width + direction * 10));
+ stageInner.style.width = width + 'px';
+});
+link.addEventListener('click', e => e.preventDefault());
+render();
+}
+
+waitForElement('[data-halo-generator] img.halo__img', image => {
+	initGenerator(image.closest('[data-halo-generator]'));
+});
