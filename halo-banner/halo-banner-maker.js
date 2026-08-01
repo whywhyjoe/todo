@@ -119,13 +119,11 @@ function hoverBackground(color) {
 }
 /* An empty text box means no text plate at all - without this an empty block
   still paints its background, padding and corner radius over the banner.
-  Markup that draws something counts as content even with no characters in it. */
+  Deliberately literal: only a box with nothing whatsoever in it counts as
+  empty, so a plate with no words on it is still reachable by typing &nbsp;
+  (or a single space) - no extra control needed for a rare case. */
 function hasTextPlate() {
- const html = String(state.text);
- if (!html.trim()) return false;
- const probe = document.createElement('div');
- probe.innerHTML = html;
- return probe.textContent.trim() !== '' || !!probe.querySelector('img, svg, picture, video, canvas');
+ return String(state.text) !== '';
 }
 function escapeAttribute(value) {
  return String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
