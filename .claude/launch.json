@@ -5,6 +5,12 @@
       "name": "workbench",
       "url": "http://localhost:8652",
       "port": 8652
+    },
+    {
+      "name": "dcs-file-picker-demo",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8655"],
+      "port": 8655
     }
   ]
 }
