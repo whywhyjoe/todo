@@ -222,32 +222,37 @@ function emit() {
   ? `\n<div class="halo__text halo__text-bg" aria-hidden="true" inert>${state.text}</div>`
    + `\n<div class="halo__text">${state.text}</div>`
   : '';
+ /* Everything below lands inside a double-quoted style="", and a font stack
+   is spelled "Dax Pro" - its own quotes would close the attribute and drop
+   every declaration after it. Same &quot; escape --banner-image already uses,
+   applied to each value a custom entry can put free text into. */
+ const attr = value => String(value).replace(/"/g, '&quot;');
  /* no plate, no variables driving one */
  const textVars = showText ?
 `
- --text-font: ${state.font};  --text-weight: ${state.weight};  --text-size: ${state.size};
+ --text-font: ${attr(state.font)};  --text-weight: ${attr(state.weight)};  --text-size: ${state.size};
  --text-x: ${state.textX};  --text-y: ${state.textY};
  --text-w: ${state.textW > 0 ? (state.textW/10.24).toFixed(3)+'cqw' : 'auto'};
  --text-h: ${state.textH > 0 ? (state.textH/10.24).toFixed(3)+'cqw' : 'auto'};
  --text-pad-x: ${(state.padX/10.24).toFixed(3)}cqw;  --text-pad-y: ${(state.padY/10.24).toFixed(3)}cqw;
  --text-radius: ${((state.rounded ? state.radius : 0)/10.24).toFixed(3)}cqw;
- --text-color: ${state.textColor};  --text-blend: ${state.blend};
- --text-bg: ${textBackground(state.textBg)};
- --text-bg-hover: ${hoverBackground(state.textBg)};` : '';
+ --text-color: ${attr(state.textColor)};  --text-blend: ${state.blend};
+ --text-bg: ${attr(textBackground(state.textBg))};
+ --text-bg-hover: ${attr(hoverBackground(state.textBg))};` : '';
  out.textContent =
 `<!-- HALO BANNER '${commentSafe(state.photoAlt)}' ${SCOPE_ID} -->
 <div class="${SCOPE_CLASS}">
 <style>
 ${scopedComponentCss(SCOPE_CLASS)}
 </style>
-<${wrapperTag} class="halo-banner-link${hasLink ? ' has-link' : ''}"${hasLink ? ` href="${state.href}"${state.target === '_blank' ? ' target="_blank" rel="noopener"' : ''}` : ''}>
+<${wrapperTag} class="halo-banner-link${hasLink ? ' has-link' : ''}"${hasLink ? ` href="${escapeAttribute(state.href)}"${state.target === '_blank' ? ' target="_blank" rel="noopener"' : ''}` : ''}>
 <div class="halo-banner" style="
  --ab-h: ${state.abHeight};
- --banner-bg: ${state.bg};  --banner-image: ${state.bgImage ? `url(&quot;${state.bgImage}&quot;)` : 'none'};
- --banner-opacity: ${state.bgOpacity};  --banner-blend: ${state.bgBlend};
+ --banner-bg: ${attr(state.bg)};  --banner-image: ${state.bgImage ? `url(&quot;${attr(state.bgImage)}&quot;)` : 'none'};
+ --banner-opacity: ${attr(state.bgOpacity)};  --banner-blend: ${state.bgBlend};
  --banner-radius: ${((state.bgRounded ? state.bgRadius : 0)/10.24).toFixed(3)}cqw;
  --scale: ${state.scale};  --x: ${state.x};  --y: ${state.y};
- --ring-weight: ${state.ringWeight};  --ring-color: ${state.ringColor};
+ --ring-weight: ${state.ringWeight};  --ring-color: ${attr(state.ringColor)};
  --photo-zoom: ${state.photoZoom};  --photo-x: ${state.photoX}%;  --photo-y: ${state.photoY}%;
  --hover-scale: ${state.hoverScale};${textVars}">
 <figure class="halo">
