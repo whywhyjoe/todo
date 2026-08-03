@@ -1202,6 +1202,11 @@ a:hover { color: var(--accent-hi); text-decoration: underline; }
 .halo__text {
  position: absolute;
  z-index: 3;
+ /* The only box here with padding and a set width, so it is the only one that
+   cares - and the page reset that used to supply this is not part of the
+   copied block. Without it a pasted plate is padding x 2 wider than the
+   preview drew, on any host that does not set border-box itself. */
+ box-sizing: border-box;
  left: calc(var(--text-x, 70) * 1%);
  top: calc(var(--text-y, 50) * 1%);
  transform: translate(-50%, -50%);
